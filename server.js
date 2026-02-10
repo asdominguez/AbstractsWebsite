@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/css", express.static(path.join(__dirname, "view", "css")));
 app.use("/js", express.static(path.join(__dirname, "view", "js")));
 
-// Sessions MUST be registered BEFORE routes so req.session exists.
+
 
 let sessionOptions = {
   secret: process.env.SESSION_SECRET || "dev_session_secret_change_me",
@@ -28,7 +28,7 @@ let sessionOptions = {
 };
 
 try {
-  if (process.env.DB_URI) {
+  if (process.env.NODE_ENV !== "test" && process.env.DB_URI) {
     sessionOptions.store = MongoStore.create({
       mongoUrl: process.env.DB_URI,
       collectionName: "sessions",
@@ -36,22 +36,23 @@ try {
     });
   }
 } catch (err) {
-  // If store creation fails for any reason, fall back to MemoryStore.
   console.warn("[startup] Session store init failed (falling back to memory):", err.message);
 }
 
 app.use(session(sessionOptions));
 
-// Connect DB + seed Admin (separate from sessions)
-(async () => {
-  try {
-    await db.connect();
-    await ensureAdminExists();
-    console.log("[startup] DB connected and default admin ensured.");
-  } catch (err) {
-    console.warn("[startup] DB/admin init failed:", err.message);
-  }
-})();
+// Connect DB + seed Admin
+if (process.env.NODE_ENV !== "test") {
+  (async () => {
+    try {
+      await db.connect();
+      await ensureAdminExists();
+      console.log("[startup] DB connected and default admin ensured.");
+    } catch (err) {
+      console.warn("[startup] DB/admin init failed:", err.message);
+    }
+  })();
+}
 
 // Routes
 app.use("/", htmlRoutes);
