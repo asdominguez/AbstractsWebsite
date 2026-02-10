@@ -10,6 +10,8 @@ jest.mock("bcrypt", () => ({
 
 jest.mock("../model/Account", () => ({
   findOne: jest.fn(),
+  find: jest.fn(),
+  findOneAndDelete: jest.fn(),
   create: jest.fn()
 }));
 
@@ -22,7 +24,9 @@ const {
   findByIdentifier,
   createAccount,
   verifyPassword,
-  ensureAdminExists
+  ensureAdminExists,
+  getAllNonAdminAccounts,
+  deleteAccountByIdNonAdmin
 } = require("../model/accountDao");
 
 describe("accountDao", () => {
@@ -166,5 +170,56 @@ describe("accountDao", () => {
       });
       expect(res).toEqual({ created: true });
     });
+  
+
+describe("getAllNonAdminAccounts", () => {
+  it("returns accounts excluding password (select -password)", async () => {
+    const accounts = [{ _id: "1", accountType: "Student", email: "a@b.com" }];
+    const q = {
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue(accounts)
+    };
+    Account.find.mockReturnValueOnce(q);
+
+    const res = await getAllNonAdminAccounts();
+
+    expect(Account.find).toHaveBeenCalledWith({ accountType: { $ne: "Admin" } });
+    expect(q.select).toHaveBeenCalledWith("-password");
+    expect(res).toEqual(accounts);
   });
+});
+
+describe("deleteAccountByIdNonAdmin", () => {
+  it("throws when accountId is missing", async () => {
+    await expect(deleteAccountByIdNonAdmin("")).rejects.toThrow("accountId is required");
+  });
+
+  it("deletes a non-admin account by id", async () => {
+    const deleted = { _id: "1", accountType: "Student", email: "a@b.com" };
+    const q = {
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue(deleted)
+    };
+    Account.findOneAndDelete.mockReturnValueOnce(q);
+
+    const res = await deleteAccountByIdNonAdmin("1");
+
+    expect(Account.findOneAndDelete).toHaveBeenCalledWith({ _id: "1", accountType: { $ne: "Admin" } });
+    expect(q.select).toHaveBeenCalledWith("-password");
+    expect(res).toEqual(deleted);
+  });
+
+  it("returns null if account not found / not deleted", async () => {
+    const q = {
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue(null)
+    };
+    Account.findOneAndDelete.mockReturnValueOnce(q);
+
+    const res = await deleteAccountByIdNonAdmin("missing");
+    expect(res).toBeNull();
+  });
+});
+
+});
 });

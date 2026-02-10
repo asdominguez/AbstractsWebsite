@@ -79,11 +79,33 @@ async function ensureAdminExists() {
   return { created: true };
 }
 
+
+
+async function getAllNonAdminAccounts() {
+  // Return all accounts except Admin, excluding password.
+  return Account.find({ accountType: { $ne: "Admin" } })
+    .select("-password")
+    .lean();
+}
+
+async function deleteAccountByIdNonAdmin(accountId) {
+  const id = String(accountId || "").trim();
+  if (!id) throw new Error("accountId is required");
+
+  // Do not allow deleting Admin accounts via this method.
+  // Returns the deleted account (without password) or null if not found / not deleted.
+  return Account.findOneAndDelete({ _id: id, accountType: { $ne: "Admin" } })
+    .select("-password")
+    .lean();
+}
+
 module.exports = {
   findByUsername,
   findByEmail,
   findByIdentifier,
   createAccount,
   verifyPassword,
-  ensureAdminExists
+  ensureAdminExists,
+  getAllNonAdminAccounts,
+  deleteAccountByIdNonAdmin
 };

@@ -1,8 +1,28 @@
 const path = require("path");
-const { createAccount, findByIdentifier, verifyPassword } = require("../model/accountDao");
+const { createAccount, findByIdentifier, verifyPassword, getAllNonAdminAccounts, deleteAccountByIdNonAdmin } = require("../model/accountDao");
 
 function sendView(res, filename) {
   return res.sendFile(path.join(__dirname, "..", "view", filename));
+}
+
+function escapeHtml(s) {
+  return String(s ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function requireAuth(req, res, next) {
+  if (!req.session?.user) return res.redirect("/login");
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.session?.user) return res.redirect("/login");
+  if (req.session.user.accountType !== "Admin") return res.status(403).send("Forbidden");
+  next();
 }
 
 function getIndex(req, res) {
@@ -113,6 +133,119 @@ async function postRegisterCommittee(req, res) {
   }
 }
 
+
+async function getAdminManageAccounts(req, res) {
+  try {
+    const accounts = await getAllNonAdminAccounts();
+
+    const groups = {
+      Student: [],
+      Reviewer: [],
+      Committee: []
+    };
+
+    for (const a of accounts) {
+      const t = a.accountType || "Other";
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(a);
+    }
+
+    const renderGroup = (type) => {
+      const list = groups[type] || [];
+      const rows = list
+        .map((a) => {
+          const id = escapeHtml(a._id);
+          const email = escapeHtml(a.email || "");
+          const username = escapeHtml(a.username || "");
+          const subjectArea = escapeHtml(a.subjectArea || "");
+          return `
+            <tr>
+              <td>${email || username}</td>
+              <td>${email}</td>
+              <td>${username}</td>
+              <td>${subjectArea}</td>
+              <td>
+                <form method="post" action="/admin/accounts/${id}/delete" style="margin:0;">
+                  <button class="btn btn-danger" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+
+      return `
+        <h2 class="section-title">${escapeHtml(type)} Accounts</h2>
+        <div class="table-wrap">
+          <table class="table" aria-label="${escapeHtml(type)} accounts table">
+            <thead>
+              <tr>
+                <th>Display</th>
+                <th>Email</th>
+                <th>Username</th>
+                <th>Subject Area</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="5" class="muted">No accounts.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      `;
+    };
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Accounts • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Manage Accounts</h1>
+        <p class="muted" style="margin-top:0;">Admin accounts are hidden and cannot be deleted here.</p>
+
+        ${renderGroup("Student")}
+        ${renderGroup("Reviewer")}
+        ${renderGroup("Committee")}
+
+        <div style="margin-top:16px;">
+          <a class="btn btn-secondary" href="/dashboard">Back to Dashboard</a>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(500).send(`Could not load accounts: ${err.message}`);
+  }
+}
+
+async function postAdminDeleteAccount(req, res) {
+  try {
+    const id = req.params.id;
+    await deleteAccountByIdNonAdmin(id);
+    return res.redirect("/admin/accounts");
+  } catch (err) {
+    return res.status(400).send(`Could not delete account: ${err.message}`);
+  }
+}
+
 module.exports = {
   getIndex,
   getLogin,
@@ -125,5 +258,9 @@ module.exports = {
   getRegisterCommittee,
   postRegisterStudent,
   postRegisterReviewer,
-  postRegisterCommittee
+  postRegisterCommittee,
+  requireAuth,
+  requireAdmin,
+  getAdminManageAccounts,
+  postAdminDeleteAccount
 };

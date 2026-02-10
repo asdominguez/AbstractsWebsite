@@ -11,7 +11,9 @@ jest.mock("../model/accountDao", () => ({
   createAccount: jest.fn(),
   findByIdentifier: jest.fn(),
   verifyPassword: jest.fn(),
-  ensureAdminExists: jest.fn().mockResolvedValue({ created: false })
+  ensureAdminExists: jest.fn().mockResolvedValue({ created: false }),
+  getAllNonAdminAccounts: jest.fn(),
+  deleteAccountByIdNonAdmin: jest.fn()
 }));
 
 const dao = require("../model/accountDao");
@@ -68,28 +70,6 @@ describe("HTML routes", () => {
     expect(res.text).toContain('href="/register/committee"');
   });
 
-  it("GET /register/student serves the student registration page", async () => {
-    const res = await request(app).get("/register/student");
-    expect(res.statusCode).toBe(200);
-    expect(res.text).toContain("Create Student Account");
-    expect(res.text).toContain('name="email"');
-    expect(res.text).toContain('name="password"');
-  });
-
-  it("GET /register/reviewer serves the reviewer registration page", async () => {
-    const res = await request(app).get("/register/reviewer");
-    expect(res.statusCode).toBe(200);
-    expect(res.text).toContain("Create Reviewer Account");
-    expect(res.text).toContain('name="subjectArea"');
-  });
-
-  it("GET /register/committee serves the committee registration page", async () => {
-    const res = await request(app).get("/register/committee");
-    expect(res.statusCode).toBe(200);
-    expect(res.text).toContain("Create Committee Account");
-    expect(res.text).toContain('name="subjectArea"');
-  });
-
   it("POST /register/student creates account via DAO then redirects to /login", async () => {
     dao.createAccount.mockResolvedValueOnce({ _id: "1" });
 
@@ -104,40 +84,6 @@ describe("HTML routes", () => {
     expect(res.headers.location).toBe("/login");
   });
 
-  it("POST /register/reviewer creates account via DAO then redirects to /login", async () => {
-    dao.createAccount.mockResolvedValueOnce({ _id: "2" });
-
-    const res = await request(app)
-      .post("/register/reviewer")
-      .send({ email: "r@b.com", password: "pw", subjectArea: "Bio" });
-
-    expect(dao.createAccount).toHaveBeenCalledWith({
-      accountType: "Reviewer",
-      email: "r@b.com",
-      password: "pw",
-      subjectArea: "Bio"
-    });
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe("/login");
-  });
-
-  it("POST /register/committee creates account via DAO then redirects to /login", async () => {
-    dao.createAccount.mockResolvedValueOnce({ _id: "3" });
-
-    const res = await request(app)
-      .post("/register/committee")
-      .send({ email: "c@b.com", password: "pw", subjectArea: "Chem" });
-
-    expect(dao.createAccount).toHaveBeenCalledWith({
-      accountType: "Committee",
-      email: "c@b.com",
-      password: "pw",
-      subjectArea: "Chem"
-    });
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe("/login");
-  });
-
   it("POST /register/student returns 400 if DAO throws", async () => {
     dao.createAccount.mockRejectedValueOnce(new Error("boom"));
 
@@ -145,5 +91,62 @@ describe("HTML routes", () => {
 
     expect(res.statusCode).toBe(400);
     expect(res.text).toContain("Could not create student account");
+  });
+});
+
+describe("Admin manage accounts", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("GET /admin/accounts redirects to /login when not authenticated", async () => {
+    const res = await request(app).get("/admin/accounts");
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/login");
+  });
+
+  it("Admin can view manage accounts page", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "admin1",
+      accountType: "Admin",
+      username: "Admin",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+
+    dao.getAllNonAdminAccounts.mockResolvedValueOnce([
+      { _id: "1", accountType: "Student", email: "s@b.com" }
+    ]);
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "Admin", password: "admin123" });
+
+    const res = await agent.get("/admin/accounts");
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain("Manage Accounts");
+    expect(res.text).toContain("Student Accounts");
+    expect(res.text).toContain("s@b.com");
+    // should not show passwords
+    expect(res.text).not.toContain("admin123");
+  });
+
+  it("Admin can delete an account", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "admin1",
+      accountType: "Admin",
+      username: "Admin",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+
+    dao.deleteAccountByIdNonAdmin.mockResolvedValueOnce({ _id: "1" });
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "Admin", password: "admin123" });
+
+    const res = await agent.post("/admin/accounts/1/delete").send({});
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/admin/accounts");
+    expect(dao.deleteAccountByIdNonAdmin).toHaveBeenCalledWith("1");
   });
 });

@@ -13,7 +13,10 @@ const {
   getRegisterCommittee,
   postRegisterStudent,
   postRegisterReviewer,
-  postRegisterCommittee
+  postRegisterCommittee,
+  requireAdmin,
+  getAdminManageAccounts,
+  postAdminDeleteAccount
 } = require("../controller/homeController");
 
 router.get("/", getIndex);
@@ -34,5 +37,9 @@ router.post("/register/reviewer", postRegisterReviewer);
 
 router.get("/register/committee", getRegisterCommittee);
 router.post("/register/committee", postRegisterCommittee);
+
+
+router.get("/admin/accounts", requireAdmin, getAdminManageAccounts);
+router.post("/admin/accounts/:id/delete", requireAdmin, postAdminDeleteAccount);
 
 module.exports = router;
