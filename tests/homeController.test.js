@@ -9,10 +9,12 @@ jest.mock("../config/db", () => ({
 // Mock DAO so server bootstrap and controllers don't require a real DB
 jest.mock("../model/accountDao", () => ({
   createAccount: jest.fn(),
+  findByIdentifier: jest.fn(),
+  verifyPassword: jest.fn(),
   ensureAdminExists: jest.fn().mockResolvedValue({ created: false })
 }));
 
-const { createAccount } = require("../model/accountDao");
+const dao = require("../model/accountDao");
 const app = require("../server");
 
 describe("HTML routes", () => {
@@ -27,19 +29,32 @@ describe("HTML routes", () => {
     expect(res.text).toContain('href="/login"');
   });
 
-  it("GET /login shows login inputs and create account button", async () => {
+  it("GET /login shows identifier/password fields and create account button", async () => {
     const res = await request(app).get("/login");
     expect(res.statusCode).toBe(200);
-    expect(res.text).toContain('name="username"');
+    expect(res.text).toContain('name="identifier"');
     expect(res.text).toContain('name="password"');
     expect(res.text).toContain("Create New Account");
     expect(res.text).toContain('href="/register"');
   });
 
-  it("POST /login redirects back to /login (placeholder auth)", async () => {
-    const res = await request(app).post("/login").send({ username: "x", password: "y" });
+  it("POST /login returns 400 when missing identifier", async () => {
+    const res = await request(app).post("/login").send({ password: "y" });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("POST /login redirects to /dashboard when credentials are valid", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "u1",
+      accountType: "Student",
+      email: "a@b.com",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+
+    const res = await request(app).post("/login").send({ identifier: "a@b.com", password: "pw" });
     expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe("/login");
+    expect(res.headers.location).toBe("/dashboard");
   });
 
   it("GET /register shows account type choices", async () => {
@@ -76,13 +91,11 @@ describe("HTML routes", () => {
   });
 
   it("POST /register/student creates account via DAO then redirects to /login", async () => {
-    createAccount.mockResolvedValueOnce({ _id: "1" });
+    dao.createAccount.mockResolvedValueOnce({ _id: "1" });
 
-    const res = await request(app)
-      .post("/register/student")
-      .send({ email: "a@b.com", password: "pw" });
+    const res = await request(app).post("/register/student").send({ email: "a@b.com", password: "pw" });
 
-    expect(createAccount).toHaveBeenCalledWith({
+    expect(dao.createAccount).toHaveBeenCalledWith({
       accountType: "Student",
       email: "a@b.com",
       password: "pw"
@@ -92,13 +105,13 @@ describe("HTML routes", () => {
   });
 
   it("POST /register/reviewer creates account via DAO then redirects to /login", async () => {
-    createAccount.mockResolvedValueOnce({ _id: "2" });
+    dao.createAccount.mockResolvedValueOnce({ _id: "2" });
 
     const res = await request(app)
       .post("/register/reviewer")
       .send({ email: "r@b.com", password: "pw", subjectArea: "Bio" });
 
-    expect(createAccount).toHaveBeenCalledWith({
+    expect(dao.createAccount).toHaveBeenCalledWith({
       accountType: "Reviewer",
       email: "r@b.com",
       password: "pw",
@@ -109,13 +122,13 @@ describe("HTML routes", () => {
   });
 
   it("POST /register/committee creates account via DAO then redirects to /login", async () => {
-    createAccount.mockResolvedValueOnce({ _id: "3" });
+    dao.createAccount.mockResolvedValueOnce({ _id: "3" });
 
     const res = await request(app)
       .post("/register/committee")
       .send({ email: "c@b.com", password: "pw", subjectArea: "Chem" });
 
-    expect(createAccount).toHaveBeenCalledWith({
+    expect(dao.createAccount).toHaveBeenCalledWith({
       accountType: "Committee",
       email: "c@b.com",
       password: "pw",
@@ -126,11 +139,9 @@ describe("HTML routes", () => {
   });
 
   it("POST /register/student returns 400 if DAO throws", async () => {
-    createAccount.mockRejectedValueOnce(new Error("boom"));
+    dao.createAccount.mockRejectedValueOnce(new Error("boom"));
 
-    const res = await request(app)
-      .post("/register/student")
-      .send({ email: "a@b.com", password: "pw" });
+    const res = await request(app).post("/register/student").send({ email: "a@b.com", password: "pw" });
 
     expect(res.statusCode).toBe(400);
     expect(res.text).toContain("Could not create student account");
