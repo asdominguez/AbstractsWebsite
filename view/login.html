@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/" aria-label="home">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+    </header>
+
+    <main class="page">
+      <section class="card" aria-label="login-card">
+        <h1 class="card-title">Login</h1>
+
+        <form class="form" method="post" action="/login" aria-label="login-form">
+          <label class="label">
+            <span>Email or Username</span>
+            <input class="input" type="text" name="identifier" autocomplete="username" />
+          </label>
+
+          <label class="label">
+            <span>Password</span>
+            <input class="input" type="password" name="password" autocomplete="current-password" />
+          </label>
+
+          <button class="btn" type="submit">Login</button>
+
+          <a class="btn btn-secondary" href="/register" aria-label="create-account-button">
+            Create New Account
+          </a>
+        </form>
+
+        <p class="muted">Passwords are now securely hashed.</p>
+      </section>
+    </main>
+  </body>
+</html>

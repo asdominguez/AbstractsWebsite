@@ -1,0 +1,142 @@
+:root {
+  /* Green & white theme */
+  --green-900: #0b3d2e;
+  --green-800: #0f5a3f;
+  --green-700: #13724f;
+  --green-100: #e7f6ee;
+  --white: #ffffff;
+
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: var(--green-900);
+  background: var(--white);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--white);
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  background: var(--white);
+  border-bottom: 2px solid var(--green-100);
+  padding: 14px 18px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 800;
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--green-800);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.06);
+}
+
+.logo-mark {
+  color: var(--white);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+}
+
+.brand-name {
+  font-size: 16px;
+  letter-spacing: 0.02em;
+}
+
+.page {
+  min-height: calc(100vh - 68px);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--white);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border: 2px solid var(--green-800);
+  border-radius: 12px;
+  background: var(--green-800);
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  background: var(--white);
+  color: var(--green-800);
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  border: 2px solid var(--green-100);
+  border-radius: 16px;
+  padding: 22px;
+  background: var(--white);
+  box-shadow: 0 8px 20px rgba(11, 61, 46, 0.08);
+}
+
+.card-title {
+  margin: 0 0 14px 0;
+  font-size: 22px;
+  color: var(--green-900);
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}
+
+.label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  color: var(--green-900);
+}
+
+.input {
+  padding: 10px 12px;
+  border: 2px solid var(--green-100);
+  border-radius: 12px;
+  font-size: 16px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--green-700);
+  box-shadow: 0 0 0 4px rgba(19, 114, 79, 0.15);
+}
+
+.muted {
+  margin: 12px 0 0 0;
+  font-size: 13px;
+  color: var(--green-800);
+  opacity: 0.75;
+}
+
+.stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}

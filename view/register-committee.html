@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Create Committee Account • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/" aria-label="home">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+    </header>
+
+    <main class="page">
+      <section class="card" aria-label="committee-register-card">
+        <h1 class="card-title">Committee Account</h1>
+
+        <form class="form" method="post" action="/register/committee" aria-label="committee-register-form">
+          <label class="label">
+            <span>Email</span>
+            <input class="input" type="email" name="email" autocomplete="email" />
+          </label>
+
+          <label class="label">
+            <span>Password</span>
+            <input class="input" type="password" name="password" autocomplete="new-password" />
+          </label>
+
+          <label class="label">
+            <span>Subject Area</span>
+            <input class="input" type="text" name="subjectArea" autocomplete="organization-title" />
+          </label>
+
+          <button class="btn" type="submit">Create Account</button>
+
+          <a class="btn btn-secondary" href="/register">Back</a>
+        </form>
+
+        <p class="muted">This form is UI-only for now; it won’t create accounts yet.</p>
+      </section>
+    </main>
+  </body>
+</html>
