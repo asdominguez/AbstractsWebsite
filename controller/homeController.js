@@ -1,5 +1,6 @@
 const path = require("path");
 const { createAccount, findByIdentifier, verifyPassword, getAllNonAdminAccounts, deleteAccountByIdNonAdmin } = require("../model/accountDao");
+const { createReviewerApplicationOnce, getApplicationsByStatus, setApplicationStatus } = require("../model/applicationDao");
 
 function sendView(res, filename) {
   return res.sendFile(path.join(__dirname, "..", "view", filename));
@@ -16,6 +17,18 @@ function escapeHtml(s) {
 
 function requireAuth(req, res, next) {
   if (!req.session?.user) return res.redirect("/login");
+  next();
+}
+
+function requireReviewer(req, res, next) {
+  if (!req.session?.user) return res.redirect("/login");
+  if (req.session.user.accountType !== "Reviewer") return res.status(403).send("Forbidden");
+  next();
+}
+
+function requireCommittee(req, res, next) {
+  if (!req.session?.user) return res.redirect("/login");
+  if (req.session.user.accountType !== "Committee") return res.status(403).send("Forbidden");
   next();
 }
 
@@ -39,7 +52,7 @@ function getDashboard(req, res) {
   const type = req.session.user.accountType;
   if (type === "Student") return sendView(res, "dashboard-student.html");
   if (type === "Reviewer") return sendView(res, "dashboard-reviewer.html");
-  if (type === "Committee") return sendView(res, "dashboard-committee.html");
+  if (type === "Committee") return getCommitteeDashboard(req, res);
   if (type === "Admin") return sendView(res, "dashboard-admin.html");
 
   return sendView(res, "dashboard.html");
@@ -246,6 +259,138 @@ async function postAdminDeleteAccount(req, res) {
   }
 }
 
+
+
+function getReviewerApplication(req, res) {
+  return sendView(res, "reviewer-application.html");
+}
+
+async function postReviewerApplication(req, res) {
+  try {
+    const reviewerId = req.session.user.id;
+
+    // Express urlencoded gives either string or array for checkbox group.
+    const roles = req.body?.roles;
+
+    await createReviewerApplicationOnce(reviewerId, {
+      name: req.body?.name,
+      roles,
+      department: req.body?.department,
+      email: req.body?.email
+    });
+
+    return res.redirect("/dashboard");
+  } catch (err) {
+    // simple error response for now
+    return res.status(400).send(`Could not submit application: ${err.message}`);
+  }
+}
+
+async function getCommitteeDashboard(req, res) {
+  try {
+    const pending = await getApplicationsByStatus("Pending");
+
+    const rows = pending
+      .map((a) => {
+        const id = escapeHtml(a._id);
+        const name = escapeHtml(a.name);
+        const dept = escapeHtml(a.department);
+        const email = escapeHtml(a.email);
+        const roles = escapeHtml((a.roles || []).join(", "));
+        return `
+          <tr>
+            <td>${name}</td>
+            <td>${roles}</td>
+            <td>${dept}</td>
+            <td>${email}</td>
+            <td>
+              <form method="post" action="/committee/applications/${id}/approve" style="display:inline;">
+                <button class="btn" type="submit">Approve</button>
+              </form>
+              <form method="post" action="/committee/applications/${id}/deny" style="display:inline; margin-left:8px;">
+                <button class="btn btn-danger" type="submit">Deny</button>
+              </form>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Committee Dashboard • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/" aria-label="home">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Committee Dashboard</h1>
+        <p class="muted" style="margin-top:0;">Next: committee review and final approval workflow.</p>
+
+        <h2 class="section-title">Review Applications</h2>
+        <p class="muted" style="margin-top:0;">Pending reviewer volunteer applications are listed here.</p>
+
+        <div class="table-wrap">
+          <table class="table" aria-label="pending applications">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Roles</th>
+                <th>Department</th>
+                <th>Email</th>
+                <th>Decision</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="5" class="muted">No pending applications.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+
+        <form method="post" action="/logout" style="margin-top: 14px;">
+          <button class="btn btn-secondary" type="submit">Logout</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(500).send(`Could not load dashboard: ${err.message}`);
+  }
+}
+
+async function postCommitteeApproveApplication(req, res) {
+  try {
+    await setApplicationStatus(req.params.id, "Approved");
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not approve application: ${err.message}`);
+  }
+}
+
+async function postCommitteeDenyApplication(req, res) {
+  try {
+    await setApplicationStatus(req.params.id, "Denied");
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not deny application: ${err.message}`);
+  }
+}
+
 module.exports = {
   getIndex,
   getLogin,
@@ -262,5 +407,12 @@ module.exports = {
   requireAuth,
   requireAdmin,
   getAdminManageAccounts,
-  postAdminDeleteAccount
+  postAdminDeleteAccount,
+  requireReviewer,
+  requireCommittee,
+  getReviewerApplication,
+  postReviewerApplication,
+  getCommitteeDashboard,
+  postCommitteeApproveApplication,
+  postCommitteeDenyApplication
 };

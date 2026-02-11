@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Volunteer Application • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+    </header>
+
+    <main class="page">
+      <section class="card" aria-label="application-card">
+        <h1 class="card-title">Volunteer Application</h1>
+        <p class="muted" style="margin-top:0;">You may submit this application once per reviewer account.</p>
+
+        <form class="form" method="post" action="/reviewer/application">
+          <label class="label">
+            <span>Name</span>
+            <input class="input" type="text" name="name" required />
+          </label>
+
+          <div class="label">
+            <span>Roles you are volunteering for</span>
+            <label class="check">
+              <input type="checkbox" name="roles" value="Reviewer of Abstracts" />
+              <span>Reviewer of Abstracts</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="roles" value="Judge for Oral Presentations" />
+              <span>Judge for Oral Presentations</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" name="roles" value="Judge for Poster Presentations" />
+              <span>Judge for Poster Presentations</span>
+            </label>
+          </div>
+
+          <label class="label">
+            <span>Department</span>
+            <input class="input" type="text" name="department" required />
+          </label>
+
+          <label class="label">
+            <span>Email</span>
+            <input class="input" type="email" name="email" required />
+          </label>
+
+          <button class="btn" type="submit">Submit Application</button>
+          <a class="btn btn-secondary" href="/dashboard">Cancel</a>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

@@ -153,3 +153,8 @@ body {
   border: 1px solid rgba(180, 0, 0, 0.35);
 }
 .btn-danger:hover { filter: brightness(0.98); }
+
+
+/* checkbox rows */
+.check { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.check input { width: auto; }

@@ -16,7 +16,13 @@ const {
   postRegisterCommittee,
   requireAdmin,
   getAdminManageAccounts,
-  postAdminDeleteAccount
+  postAdminDeleteAccount,
+  requireReviewer,
+  requireCommittee,
+  getReviewerApplication,
+  postReviewerApplication,
+  postCommitteeApproveApplication,
+  postCommitteeDenyApplication
 } = require("../controller/homeController");
 
 router.get("/", getIndex);
@@ -41,5 +47,13 @@ router.post("/register/committee", postRegisterCommittee);
 
 router.get("/admin/accounts", requireAdmin, getAdminManageAccounts);
 router.post("/admin/accounts/:id/delete", requireAdmin, postAdminDeleteAccount);
+
+
+
+router.get("/reviewer/application", requireReviewer, getReviewerApplication);
+router.post("/reviewer/application", requireReviewer, postReviewerApplication);
+
+router.post("/committee/applications/:id/approve", requireCommittee, postCommitteeApproveApplication);
+router.post("/committee/applications/:id/deny", requireCommittee, postCommitteeDenyApplication);
 
 module.exports = router;

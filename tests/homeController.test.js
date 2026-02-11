@@ -16,6 +16,13 @@ jest.mock("../model/accountDao", () => ({
   deleteAccountByIdNonAdmin: jest.fn()
 }));
 
+jest.mock("../model/applicationDao", () => ({
+  createReviewerApplicationOnce: jest.fn(),
+  getApplicationsByStatus: jest.fn(),
+  setApplicationStatus: jest.fn()
+}));
+
+
 const dao = require("../model/accountDao");
 const app = require("../server");
 
@@ -148,5 +155,106 @@ describe("Admin manage accounts", () => {
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe("/admin/accounts");
     expect(dao.deleteAccountByIdNonAdmin).toHaveBeenCalledWith("1");
+  });
+});
+
+
+describe("Reviewer application + committee review", () => {
+  const appDao = require("../model/applicationDao");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("Reviewer can open application form", async () => {
+    // login as reviewer
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "r1",
+      accountType: "Reviewer",
+      email: "r@b.com",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "r@b.com", password: "pw" });
+
+    const res = await agent.get("/reviewer/application");
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain("Volunteer Application");
+  });
+
+  it("Reviewer can submit application (once)", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "r1",
+      accountType: "Reviewer",
+      email: "r@b.com",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+
+    appDao.createReviewerApplicationOnce.mockResolvedValueOnce({ _id: "a1" });
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "r@b.com", password: "pw" });
+
+    const res = await agent.post("/reviewer/application").send({
+      name: "Jane",
+      roles: ["Reviewer of Abstracts"],
+      department: "Bio",
+      email: "j@b.com"
+    });
+
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/dashboard");
+    expect(appDao.createReviewerApplicationOnce).toHaveBeenCalledWith("r1", expect.any(Object));
+  });
+
+  it("Committee dashboard shows pending applications and can approve", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "c1",
+      accountType: "Committee",
+      email: "c@b.com",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+
+    appDao.getApplicationsByStatus.mockResolvedValueOnce([
+      { _id: "a1", name: "Jane", roles: ["Reviewer of Abstracts"], department: "Bio", email: "j@b.com" }
+    ]);
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "c@b.com", password: "pw" });
+
+    const dash = await agent.get("/dashboard");
+    expect(dash.statusCode).toBe(200);
+    expect(dash.text).toContain("Review Applications");
+    expect(dash.text).toContain("Jane");
+
+    appDao.setApplicationStatus.mockResolvedValueOnce({ _id: "a1", status: "Approved" });
+    const res = await agent.post("/committee/applications/a1/approve").send({});
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/dashboard");
+    expect(appDao.setApplicationStatus).toHaveBeenCalledWith("a1", "Approved");
+  });
+
+  it("Committee can deny", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "c1",
+      accountType: "Committee",
+      email: "c@b.com",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+
+    appDao.setApplicationStatus.mockResolvedValueOnce({ _id: "a1", status: "Denied" });
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "c@b.com", password: "pw" });
+
+    const res = await agent.post("/committee/applications/a1/deny").send({});
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/dashboard");
+    expect(appDao.setApplicationStatus).toHaveBeenCalledWith("a1", "Denied");
   });
 });
