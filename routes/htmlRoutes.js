@@ -22,7 +22,9 @@ const {
   getReviewerApplication,
   postReviewerApplication,
   postCommitteeApproveApplication,
-  postCommitteeDenyApplication
+  postCommitteeDenyApplication,
+  postCommitteeApproveAccount,
+  postCommitteeDenyAccount
 } = require("../controller/homeController");
 
 router.get("/", getIndex);
@@ -55,5 +57,8 @@ router.post("/reviewer/application", requireReviewer, postReviewerApplication);
 
 router.post("/committee/applications/:id/approve", requireCommittee, postCommitteeApproveApplication);
 router.post("/committee/applications/:id/deny", requireCommittee, postCommitteeDenyApplication);
+
+router.post("/committee/accounts/:id/approve", requireCommittee, postCommitteeApproveAccount);
+router.post("/committee/accounts/:id/deny", requireCommittee, postCommitteeDenyAccount);
 
 module.exports = router;

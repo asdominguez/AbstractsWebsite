@@ -1,5 +1,5 @@
 const path = require("path");
-const { createAccount, findByIdentifier, verifyPassword, getAllNonAdminAccounts, deleteAccountByIdNonAdmin } = require("../model/accountDao");
+const { createAccount, findByIdentifier, verifyPassword, getAllNonAdminAccounts, deleteAccountByIdNonAdmin, getAllStatus, setAccountStatus } = require("../model/accountDao");
 const { createReviewerApplicationOnce, getApplicationsByStatus, setApplicationStatus } = require("../model/applicationDao");
 
 function sendView(res, filename) {
@@ -50,9 +50,10 @@ function getDashboard(req, res) {
   if (!req.session?.user) return res.redirect("/login");
 
   const type = req.session.user.accountType;
-  if (type === "Student") return sendView(res, "dashboard-student.html");
-  if (type === "Reviewer") return sendView(res, "dashboard-reviewer.html");
-  if (type === "Committee") return getCommitteeDashboard(req, res);
+  const status = req.session.user.status;
+  if (type === "Student" && status === "Approved") return sendView(res, "dashboard-student.html");
+  if (type === "Reviewer" && status === "Approved") return sendView(res, "dashboard-reviewer.html");
+  if (type === "Committee" && status === "Approved") return getCommitteeDashboard(req, res);
   if (type === "Admin") return sendView(res, "dashboard-admin.html");
 
   return sendView(res, "dashboard.html");
@@ -91,7 +92,9 @@ async function postLogin(req, res) {
       id: String(account._id),
       accountType: account.accountType,
       email: account.email || null,
-      username: account.username || null
+      username: account.username || null,
+
+      status: account.status || null
     };
 
     return res.redirect("/dashboard");
@@ -289,7 +292,6 @@ async function postReviewerApplication(req, res) {
 async function getCommitteeDashboard(req, res) {
   try {
     const pending = await getApplicationsByStatus("Pending");
-
     const rows = pending
       .map((a) => {
         const id = escapeHtml(a._id);
@@ -315,7 +317,25 @@ async function getCommitteeDashboard(req, res) {
         `;
       })
       .join("");
-
+    const accs = await getAllStatus("Pending");
+    const accountList = accs.map((a) => {
+      const id = escapeHtml(a._id);
+      const type = escapeHtml(a.accountType);
+      const email = escapeHtml(a.email);
+      const subject = escapeHtml(a.subjectArea);
+      return `<tr>
+            <td>${email}</td>
+            <td>${type}</td>
+            <td>
+              <form method="post" action="/committee/accounts/${id}/approve" style="display:inline;">
+                <button class="btn" type="submit">Approve</button>
+              </form>
+              <form method="post" action="/committee/accounts/${id}/deny" style="display:inline; margin-left:8px;">
+                <button class="btn btn-danger" type="submit">Deny</button>
+              </form>
+            </td>
+          </tr>`
+    }).join("");
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -358,7 +378,22 @@ async function getCommitteeDashboard(req, res) {
             </tbody>
           </table>
         </div>
-
+        <h2 class="section-title">Pending Accounts</h2>
+        <div class="table-wrap">
+          <table class="table" aria-label="pending applications">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Type</th>
+                <th>Decision</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${accountList || `<tr><td colspan="5" class="muted">No pending accounts.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+        
         <form method="post" action="/logout" style="margin-top: 14px;">
           <button class="btn btn-secondary" type="submit">Logout</button>
         </form>
@@ -391,6 +426,24 @@ async function postCommitteeDenyApplication(req, res) {
   }
 }
 
+async function postCommitteeApproveAccount(req, res) {
+  try {
+    await setAccountStatus(req.params.id, "Approved");
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not approve account: ${err.message}`);
+  }
+}
+
+async function postCommitteeDenyAccount(req, res) {
+  try {
+    await setAccountStatus(req.params.id, "Denied");
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not deny application: ${err.message}`);
+  }
+}
+
 module.exports = {
   getIndex,
   getLogin,
@@ -414,5 +467,7 @@ module.exports = {
   postReviewerApplication,
   getCommitteeDashboard,
   postCommitteeApproveApplication,
-  postCommitteeDenyApplication
+  postCommitteeDenyApplication,
+  postCommitteeApproveAccount,
+  postCommitteeDenyAccount
 };

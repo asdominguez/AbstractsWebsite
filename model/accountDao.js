@@ -26,6 +26,11 @@ async function findByIdentifier(identifier) {
   return findByUsername(id);
 }
 
+async function getAllStatus(status) {
+  const s = String(status || "").trim() || "Pending";
+  return Account.find({ status: s }).lean();
+}
+
 async function createAccount(data) {
   if (!data || !data.accountType || !data.password) {
     throw new Error("accountType and password are required");
@@ -79,7 +84,14 @@ async function ensureAdminExists() {
   return { created: true };
 }
 
+async function setAccountStatus(accountID, status) {
+  const id = String(accountID || "").trim();
+  if (!id) throw new Error("applicationId is required");
+  const s = String(status || "").trim();
+  if (!["Approved", "Denied", "Pending"].includes(s)) throw new Error("Invalid status");
 
+  return Account.findByIdAndUpdate(id, { status: s }, { new: true }).lean();
+}
 
 async function getAllNonAdminAccounts() {
   // Return all accounts except Admin, excluding password.
@@ -103,6 +115,8 @@ module.exports = {
   findByUsername,
   findByEmail,
   findByIdentifier,
+  getAllStatus,
+  setAccountStatus,
   createAccount,
   verifyPassword,
   ensureAdminExists,

@@ -15,7 +15,8 @@ const AccountSchema = new mongoose.Schema(
     username: { type: String, trim: true },
     email: { type: String, trim: true, lowercase: true },
     password: { type: String, required: true },
-    subjectArea: { type: String, trim: true }
+    subjectArea: { type: String, trim: true },
+    status: { type: String, required: true, enum: ["Pending", "Approved", "Denied"], default: "Pending" },
   },
   { timestamps: true }
 );
