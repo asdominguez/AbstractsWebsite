@@ -13,7 +13,9 @@ jest.mock("../model/accountDao", () => ({
   verifyPassword: jest.fn(),
   ensureAdminExists: jest.fn().mockResolvedValue({ created: false }),
   getAllNonAdminAccounts: jest.fn(),
-  deleteAccountByIdNonAdmin: jest.fn()
+  deleteAccountByIdNonAdmin: jest.fn(),
+  getAllStatus: jest.fn(),
+  setAccountStatus: jest.fn()
 }));
 
 jest.mock("../model/applicationDao", () => ({
@@ -222,6 +224,8 @@ describe("Reviewer application + committee review", () => {
     appDao.getApplicationsByStatus.mockResolvedValueOnce([
       { _id: "a1", name: "Jane", roles: ["Reviewer of Abstracts"], department: "Bio", email: "j@b.com" }
     ]);
+
+    dao.getAllStatus.mockResolvedValueOnce([]);
 
     const agent = request.agent(app);
     await agent.post("/login").send({ identifier: "c@b.com", password: "pw" });

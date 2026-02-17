@@ -12,6 +12,7 @@ jest.mock("../model/Account", () => ({
   findOne: jest.fn(),
   find: jest.fn(),
   findOneAndDelete: jest.fn(),
+  findByIdAndUpdate: jest.fn(),
   create: jest.fn()
 }));
 
@@ -26,7 +27,9 @@ const {
   verifyPassword,
   ensureAdminExists,
   getAllNonAdminAccounts,
-  deleteAccountByIdNonAdmin
+  deleteAccountByIdNonAdmin,
+  getAllStatus,
+  setAccountStatus
 } = require("../model/accountDao");
 
 describe("accountDao", () => {
@@ -218,6 +221,39 @@ describe("deleteAccountByIdNonAdmin", () => {
 
     const res = await deleteAccountByIdNonAdmin("missing");
     expect(res).toBeNull();
+  });
+});
+
+
+
+describe("getAllStatus", () => {
+  it("defaults to Pending when status empty", async () => {
+    Account.find.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue([]) });
+    await getAllStatus("");
+    expect(Account.find).toHaveBeenCalledWith({ status: "Pending" });
+  });
+
+  it("uses provided status", async () => {
+    Account.find.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue([]) });
+    await getAllStatus("Approved");
+    expect(Account.find).toHaveBeenCalledWith({ status: "Approved" });
+  });
+});
+
+describe("setAccountStatus", () => {
+  it("throws when id missing", async () => {
+    await expect(setAccountStatus("", "Approved")).rejects.toThrow("applicationId is required");
+  });
+
+  it("throws when status invalid", async () => {
+    await expect(setAccountStatus("1", "Bad")).rejects.toThrow("Invalid status");
+  });
+
+  it("updates status", async () => {
+    Account.findByIdAndUpdate.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue({ _id: "1", status: "Approved" }) });
+    const res = await setAccountStatus("1", "Approved");
+    expect(Account.findByIdAndUpdate).toHaveBeenCalledWith("1", { status: "Approved" }, { new: true });
+    expect(res.status).toBe("Approved");
   });
 });
 

@@ -51,9 +51,14 @@ function getDashboard(req, res) {
 
   const type = req.session.user.accountType;
   const status = req.session.user.status;
-  if (type === "Student" && status === "Approved") return sendView(res, "dashboard-student.html");
-  if (type === "Reviewer" && status === "Approved") return sendView(res, "dashboard-reviewer.html");
-  if (type === "Committee" && status === "Approved") return getCommitteeDashboard(req, res);
+
+  // If an account is denied, keep them out of role dashboards.
+  if (status === "Denied") return sendView(res, "dashboard.html");
+
+  // Route by role (status gating handled elsewhere if needed).
+  if (type === "Student") return sendView(res, "dashboard-student.html");
+  if (type === "Reviewer") return sendView(res, "dashboard-reviewer.html");
+  if (type === "Committee") return getCommitteeDashboard(req, res);
   if (type === "Admin") return sendView(res, "dashboard-admin.html");
 
   return sendView(res, "dashboard.html");
