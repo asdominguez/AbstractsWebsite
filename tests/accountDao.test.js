@@ -13,6 +13,7 @@ jest.mock("../model/Account", () => ({
   find: jest.fn(),
   findOneAndDelete: jest.fn(),
   findByIdAndUpdate: jest.fn(),
+  findOneAndUpdate: jest.fn(),
   create: jest.fn()
 }));
 
@@ -29,7 +30,9 @@ const {
   getAllNonAdminAccounts,
   deleteAccountByIdNonAdmin,
   getAllStatus,
-  setAccountStatus
+  setAccountStatus,
+  updateCommitteeInfo,
+  getCommitteeMemberInfoList
 } = require("../model/accountDao");
 
 describe("accountDao", () => {
@@ -254,6 +257,48 @@ describe("setAccountStatus", () => {
     const res = await setAccountStatus("1", "Approved");
     expect(Account.findByIdAndUpdate).toHaveBeenCalledWith("1", { status: "Approved" }, { new: true });
     expect(res.status).toBe("Approved");
+  });
+});
+
+
+
+describe("updateCommitteeInfo", () => {
+  it("throws when accountId missing", async () => {
+    await expect(updateCommitteeInfo("", { name: "x" })).rejects.toThrow("accountId is required");
+  });
+
+  it("updates committee info for committee account", async () => {
+    Account.findOneAndUpdate.mockReturnValueOnce({
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue({ _id: "c1", accountType: "Committee", committeeInfo: { name: "Name" } })
+    });
+
+    const res = await updateCommitteeInfo("c1", {
+      name: "Name",
+      loyolaEmail: "X@loyola.edu",
+      departmentArea: "CS",
+      description: "Chair"
+    });
+
+    expect(Account.findOneAndUpdate).toHaveBeenCalledWith(
+      { _id: "c1", accountType: "Committee" },
+      { $set: expect.objectContaining({ "committeeInfo.name": "Name", "committeeInfo.loyolaEmail": "x@loyola.edu" }) },
+      { new: true }
+    );
+    expect(res.committeeInfo.name).toBe("Name");
+  });
+});
+
+describe("getCommitteeMemberInfoList", () => {
+  it("returns approved committee accounts without password", async () => {
+    Account.find.mockReturnValueOnce({
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockResolvedValue([{ _id: "c1", accountType: "Committee" }])
+    });
+
+    const res = await getCommitteeMemberInfoList();
+    expect(Account.find).toHaveBeenCalledWith({ accountType: "Committee", status: "Approved" });
+    expect(res).toHaveLength(1);
   });
 });
 

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Committee Info • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+      </div>
+      <span style="margin-left:14px;">
+        <a class="btn btn-secondary" href="/dashboard">Back to Dashboard</a>
+      </span>
+    </header>
+
+    <main class="page">
+      <section class="card" aria-label="committee-info-card">
+        <h1 class="card-title">Committee Member Info</h1>
+        <p class="muted">This information will be shown on the Committee Member Info page.</p>
+
+        <form class="form" method="post" action="/committee/info">
+          <label class="label">
+            <span>Name</span>
+            <input class="input" type="text" name="name" required />
+          </label>
+
+          <label class="label">
+            <span>Loyola Email Address</span>
+            <input class="input" type="email" name="loyolaEmail" required />
+          </label>
+
+          <label class="label">
+            <span>Department Area</span>
+            <input class="input" type="text" name="departmentArea" required />
+          </label>
+
+          <label class="label">
+            <span>Brief Description</span>
+            <input class="input" type="text" name="description" required />
+          </label>
+
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;">
+            <button class="btn" type="submit">Save</button>
+            <a class="btn btn-secondary" href="/dashboard">Cancel</a>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

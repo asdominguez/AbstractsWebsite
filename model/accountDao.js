@@ -111,6 +111,36 @@ async function deleteAccountByIdNonAdmin(accountId) {
     .lean();
 }
 
+
+async function updateCommitteeInfo(accountId, info) {
+  const id = String(accountId || "").trim();
+  if (!id) throw new Error("accountId is required");
+
+  const payload = {
+    "committeeInfo.name": String(info?.name || "").trim(),
+    "committeeInfo.loyolaEmail": String(info?.loyolaEmail || "").trim().toLowerCase(),
+    "committeeInfo.departmentArea": String(info?.departmentArea || "").trim(),
+    "committeeInfo.description": String(info?.description || "").trim()
+  };
+
+  // Only committee accounts can be updated by this method
+  return Account.findOneAndUpdate(
+    { _id: id, accountType: "Committee" },
+    { $set: payload },
+    { new: true }
+  )
+    .select("-password")
+    .lean();
+}
+
+async function getCommitteeMemberInfoList() {
+  // Approved committee accounts with public info. Exclude password.
+  return Account.find({ accountType: "Committee", status: "Approved" })
+    .select("-password")
+    .lean();
+}
+
+
 module.exports = {
   findByUsername,
   findByEmail,
@@ -121,5 +151,7 @@ module.exports = {
   verifyPassword,
   ensureAdminExists,
   getAllNonAdminAccounts,
-  deleteAccountByIdNonAdmin
+  deleteAccountByIdNonAdmin,
+  updateCommitteeInfo,
+  getCommitteeMemberInfoList
 };

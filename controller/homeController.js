@@ -1,5 +1,5 @@
 const path = require("path");
-const { createAccount, findByIdentifier, verifyPassword, getAllNonAdminAccounts, deleteAccountByIdNonAdmin, getAllStatus, setAccountStatus } = require("../model/accountDao");
+const { createAccount, findByIdentifier, verifyPassword, getAllNonAdminAccounts, deleteAccountByIdNonAdmin, getAllStatus, setAccountStatus, updateCommitteeInfo, getCommitteeMemberInfoList } = require("../model/accountDao");
 const { createReviewerApplicationOnce, getApplicationsByStatus, setApplicationStatus } = require("../model/applicationDao");
 
 function sendView(res, filename) {
@@ -232,6 +232,9 @@ async function getAdminManageAccounts(req, res) {
         </div>
         <span class="brand-name">Abstract Portal</span>
       </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+      </div>
     </header>
 
     <main class="page">
@@ -357,11 +360,17 @@ async function getCommitteeDashboard(req, res) {
         </div>
         <span class="brand-name">Abstract Portal</span>
       </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+      </div>
     </header>
 
     <main class="page">
       <section class="card">
         <h1 class="card-title">Committee Dashboard</h1>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:10px;">
+          <a class="btn" href="/committee/info">My Info</a>
+        </div>
         <p class="muted" style="margin-top:0;">Next: committee review and final approval workflow.</p>
 
         <h2 class="section-title">Review Applications</h2>
@@ -449,6 +458,112 @@ async function postCommitteeDenyAccount(req, res) {
   }
 }
 
+
+
+function getCommitteeInfoForm(req, res) {
+  return sendView(res, "committee-info-form.html");
+}
+
+async function postCommitteeInfoForm(req, res) {
+  try {
+    const userId = req.session?.user?.id;
+    if (!userId) return res.redirect("/login");
+
+    const updated = await updateCommitteeInfo(userId, {
+      name: req.body.name,
+      loyolaEmail: req.body.loyolaEmail,
+      departmentArea: req.body.departmentArea,
+      description: req.body.description
+    });
+
+    // Keep session in sync (optional fields)
+    if (updated?.committeeInfo) {
+      req.session.user.committeeInfo = updated.committeeInfo;
+    }
+
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not save committee info: ${err.message}`);
+  }
+}
+
+async function getCommitteeMembersPage(req, res) {
+  try {
+    const committee = await getCommitteeMemberInfoList();
+
+    const rows = committee
+      .filter((a) => a.accountType === "Committee")
+      .map((a) => {
+        const info = a.committeeInfo || {};
+        const name = escapeHtml(info.name || "");
+        const email = escapeHtml(info.loyolaEmail || a.email || "");
+        const dept = escapeHtml(info.departmentArea || "");
+        const desc = escapeHtml(info.description || "");
+
+        return `
+          <tr>
+            <td>${name || `<span class="muted">(not provided)</span>`}</td>
+            <td>${email || `<span class="muted">(not provided)</span>`}</td>
+            <td>${dept || `<span class="muted">(not provided)</span>`}</td>
+            <td>${desc || `<span class="muted">(not provided)</span>`}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Committee Member Info • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <span style="margin-left:14px;">
+        <a class="btn btn-secondary" href="/dashboard">Back to Dashboard</a>
+      </span>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Committee Member Info</h1>
+        <p class="muted" style="margin-top:0;">Public contact information provided by committee members.</p>
+
+        <div class="table-wrap">
+          <table class="table" aria-label="committee member info">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Loyola Email</th>
+                <th>Department Area</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="4" class="muted">No committee members found.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(500).send(`Could not load committee members: ${err.message}`);
+  }
+}
+
+
 module.exports = {
   getIndex,
   getLogin,
@@ -474,5 +589,8 @@ module.exports = {
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,
-  postCommitteeDenyAccount
+  postCommitteeDenyAccount,
+  getCommitteeInfoForm,
+  postCommitteeInfoForm,
+  getCommitteeMembersPage
 };

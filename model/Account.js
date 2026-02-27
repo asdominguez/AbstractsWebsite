@@ -17,6 +17,14 @@ const AccountSchema = new mongoose.Schema(
     password: { type: String, required: true },
     subjectArea: { type: String, trim: true },
     status: { type: String, required: true, enum: ["Pending", "Approved", "Denied"], default: "Pending" },
+
+    // Committee-only public info (optional)
+    committeeInfo: {
+      name: { type: String, trim: true },
+      loyolaEmail: { type: String, trim: true, lowercase: true },
+      departmentArea: { type: String, trim: true },
+      description: { type: String, trim: true }
+    },
   },
   { timestamps: true }
 );

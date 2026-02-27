@@ -15,7 +15,9 @@ jest.mock("../model/accountDao", () => ({
   getAllNonAdminAccounts: jest.fn(),
   deleteAccountByIdNonAdmin: jest.fn(),
   getAllStatus: jest.fn(),
-  setAccountStatus: jest.fn()
+  setAccountStatus: jest.fn(),
+  updateCommitteeInfo: jest.fn(),
+  getCommitteeMemberInfoList: jest.fn()
 }));
 
 jest.mock("../model/applicationDao", () => ({
@@ -260,5 +262,40 @@ describe("Reviewer application + committee review", () => {
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe("/dashboard");
     expect(appDao.setApplicationStatus).toHaveBeenCalledWith("a1", "Denied");
+  });
+});
+
+
+describe("Committee member info", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("GET /committee-members renders table rows", async () => {
+    const dao = require("../model/accountDao");
+    dao.getCommitteeMemberInfoList.mockResolvedValueOnce([
+      { _id: "c1", accountType: "Committee", status: "Approved", committeeInfo: { name: "Dr. A", loyolaEmail: "a@loyola.edu", departmentArea: "Philosophy", description: "Chair" } }
+    ]);
+
+    const res = await request(app).get("/committee-members");
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain("Committee Member Info");
+    expect(res.text).toContain("Dr. A");
+    expect(res.text).toContain("a@loyola.edu");
+  });
+
+  it("Committee can save their info via POST /committee/info", async () => {
+    const dao = require("../model/accountDao");
+    dao.findByIdentifier.mockResolvedValueOnce({ _id: "c1", accountType: "Committee", email: "c@b.com", password: "HASH" });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+
+    dao.updateCommitteeInfo.mockResolvedValueOnce({ _id: "c1", accountType: "Committee", committeeInfo: { name: "X" } });
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "c@b.com", password: "pw" });
+
+    const res = await agent.post("/committee/info").send({ name: "X", loyolaEmail: "x@loyola.edu", departmentArea: "CS", description: "Member" });
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/dashboard");
   });
 });

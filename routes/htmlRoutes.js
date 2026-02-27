@@ -24,7 +24,10 @@ const {
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,
-  postCommitteeDenyAccount
+  postCommitteeDenyAccount,
+  getCommitteeInfoForm,
+  postCommitteeInfoForm,
+  getCommitteeMembersPage
 } = require("../controller/homeController");
 
 router.get("/", getIndex);
@@ -62,3 +65,8 @@ router.post("/committee/accounts/:id/approve", requireCommittee, postCommitteeAp
 router.post("/committee/accounts/:id/deny", requireCommittee, postCommitteeDenyAccount);
 
 module.exports = router;
+
+
+router.get('/committee/info', requireCommittee, getCommitteeInfoForm);
+router.post('/committee/info', requireCommittee, postCommitteeInfoForm);
+router.get('/committee-members', getCommitteeMembersPage);

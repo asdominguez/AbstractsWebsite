@@ -158,3 +158,12 @@ body {
 /* checkbox rows */
 .check { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
 .check input { width: auto; }
+
+
+/* Topbar actions (desktop-friendly) */
+.topbar-actions{
+  margin-left:auto;
+  display:flex;
+  gap:12px;
+  align-items:center;
+}
