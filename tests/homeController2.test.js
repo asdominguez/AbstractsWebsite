@@ -12,6 +12,7 @@ jest.mock("../model/accountDao", () => ({
 
 jest.mock("../model/applicationDao", () => ({
   createReviewerApplicationOnce: jest.fn(),
+  getApplicationByReviewerId: jest.fn(),
   getApplicationsByStatus: jest.fn(),
   setApplicationStatus: jest.fn()
 }));

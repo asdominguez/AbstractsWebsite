@@ -34,6 +34,8 @@ jest.mock("../model/applicationDao", () => ({
 
 
 const dao = require("../model/accountDao");
+const appDao = require("../model/applicationDao");
+const absDao = require("../model/abstractDao");
 const app = require("../server");
 
 describe("HTML routes", () => {
@@ -170,7 +172,6 @@ describe("Admin manage accounts", () => {
 
 
 describe("Reviewer application + committee review", () => {
-  const appDao = require("../model/applicationDao");
 
   beforeEach(() => {
     jest.clearAllMocks();

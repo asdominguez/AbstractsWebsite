@@ -443,11 +443,30 @@ async function postAbstractSubmit(req, res) {
     const userId = req.session?.user?.id;
     if (!userId) return res.redirect("/login");
 
-    await abstractDao.upsertStudentAbstract(userId, {
+    const payload = {
       title: req.body?.title,
       description: req.body?.description,
       presentationType: req.body?.presentationType
-    });
+    };
+
+    if (req.body?.intent === "draft") {
+      if (typeof abstractDao.saveStudentAbstractDraft === "function") {
+        await abstractDao.saveStudentAbstractDraft(userId, payload);
+      } else if (typeof abstractDao.upsertStudentAbstract === "function") {
+        await abstractDao.upsertStudentAbstract(userId, payload);
+      } else {
+        throw new Error("Draft saving is unavailable");
+      }
+      return res.redirect("/dashboard");
+    }
+
+    if (typeof abstractDao.submitStudentAbstract === "function") {
+      await abstractDao.submitStudentAbstract(userId, payload);
+    } else if (typeof abstractDao.upsertStudentAbstract === "function") {
+      await abstractDao.upsertStudentAbstract(userId, payload);
+    } else {
+      throw new Error("Abstract submission is unavailable");
+    }
 
     return res.redirect("/dashboard");
   } catch (err) {
