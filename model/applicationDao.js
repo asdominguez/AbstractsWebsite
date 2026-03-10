@@ -23,7 +23,15 @@ async function createReviewerApplicationOnce(reviewerId, data) {
   return doc.toObject();
 }
 
+
+async function getApplicationByReviewerId(reviewerId) {
+  const rid = String(reviewerId || "").trim();
+  if (!rid) throw new Error("reviewerId is required");
+  return Application.findOne({ reviewerId: rid }).lean();
+}
+
 async function getApplicationsByStatus(status) {
+
   const s = String(status || "").trim() || "Pending";
   return Application.find({ status: s }).lean();
 }
@@ -39,6 +47,7 @@ async function setApplicationStatus(appId, status) {
 
 module.exports = {
   createReviewerApplicationOnce,
+  getApplicationByReviewerId,
   getApplicationsByStatus,
   setApplicationStatus
 };

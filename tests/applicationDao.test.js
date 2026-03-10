@@ -9,6 +9,7 @@ const Application = require("../model/Application");
 
 const {
   createReviewerApplicationOnce,
+  getApplicationByReviewerId,
   getApplicationsByStatus,
   setApplicationStatus
 } = require("../model/applicationDao");
@@ -72,4 +73,18 @@ describe("applicationDao", () => {
       expect(res.status).toBe("Approved");
     });
   });
+
+
+describe("getApplicationByReviewerId", () => {
+  it("throws if reviewerId missing", async () => {
+    await expect(getApplicationByReviewerId("")).rejects.toThrow("reviewerId is required");
+  });
+
+  it("returns reviewer application", async () => {
+    Application.findOne.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue({ reviewerId: "r1", status: "Pending" }) });
+    const res = await getApplicationByReviewerId("r1");
+    expect(Application.findOne).toHaveBeenCalledWith({ reviewerId: "r1" });
+    expect(res.status).toBe("Pending");
+  });
+});
 });
