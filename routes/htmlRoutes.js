@@ -14,6 +14,7 @@ const {
   postRegisterStudent,
   postRegisterReviewer,
   postRegisterCommittee,
+  requireStudent,
   requireAdmin,
   getAdminManageAccounts,
   postAdminDeleteAccount,
@@ -27,7 +28,10 @@ const {
   postCommitteeDenyAccount,
   getCommitteeInfoForm,
   postCommitteeInfoForm,
-  getCommitteeMembersPage
+  getCommitteeMembersPage,
+  getAbstractSubmitForm,
+  postAbstractSubmit,
+  getStudentAbstractView
 } = require("../controller/homeController");
 
 router.get("/", getIndex);
@@ -50,8 +54,10 @@ router.get("/register/committee", getRegisterCommittee);
 router.post("/register/committee", postRegisterCommittee);
 
 
-router.get("/admin/accounts", requireAdmin, getAdminManageAccounts);
-router.post("/admin/accounts/:id/delete", requireAdmin, postAdminDeleteAccount);
+router.get("/admin/accounts", requireStudent,
+  requireAdmin, getAdminManageAccounts);
+router.post("/admin/accounts/:id/delete", requireStudent,
+  requireAdmin, postAdminDeleteAccount);
 
 
 
@@ -69,4 +75,12 @@ module.exports = router;
 
 router.get('/committee/info', requireCommittee, getCommitteeInfoForm);
 router.post('/committee/info', requireCommittee, postCommitteeInfoForm);
-router.get('/committee-members', getCommitteeMembersPage);
+router.get('/committee-members', getCommitteeMembersPage,
+  getAbstractSubmitForm,
+  postAbstractSubmit,
+  getStudentAbstractView);
+
+// Student abstract routes
+router.get('/student/abstract/submit', requireStudent, getAbstractSubmitForm);
+router.post('/student/abstract/submit', requireStudent, postAbstractSubmit);
+router.get('/student/abstract', requireStudent, getStudentAbstractView);

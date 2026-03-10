@@ -20,6 +20,11 @@ jest.mock("../model/accountDao", () => ({
   getCommitteeMemberInfoList: jest.fn()
 }));
 
+jest.mock("../model/abstractDao", () => ({
+  upsertStudentAbstract: jest.fn(),
+  getAbstractByStudentId: jest.fn()
+}));
+
 jest.mock("../model/applicationDao", () => ({
   createReviewerApplicationOnce: jest.fn(),
   getApplicationsByStatus: jest.fn(),
@@ -297,5 +302,89 @@ describe("Committee member info", () => {
     const res = await agent.post("/committee/info").send({ name: "X", loyolaEmail: "x@loyola.edu", departmentArea: "CS", description: "Member" });
     expect(res.statusCode).toBe(302);
     expect(res.headers.location).toBe("/dashboard");
+  });
+});
+
+
+describe("Student abstract submission", () => {
+  const absDao = require("../model/abstractDao");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("Student dashboard shows View My Abstract button when abstract exists", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "s1",
+      accountType: "Student",
+      email: "student@x.com",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+    absDao.getAbstractByStudentId.mockResolvedValueOnce({ studentId: "s1", title: "T" });
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "student@x.com", password: "pw" });
+
+    const res = await agent.get("/dashboard");
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain("Submit Abstract");
+    expect(res.text).toContain("View My Abstract");
+    expect(res.text).toContain('href="/student/abstract"');
+  });
+
+  it("Student can submit abstract", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "s1",
+      accountType: "Student",
+      email: "student@x.com",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+    absDao.upsertStudentAbstract.mockResolvedValueOnce({ studentId: "s1", title: "My Title" });
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "student@x.com", password: "pw" });
+
+    const res = await agent.post("/student/abstract/submit").send({
+      title: "My Title",
+      description: "Desc",
+      presentationType: "Poster"
+    });
+
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/dashboard");
+    expect(absDao.upsertStudentAbstract).toHaveBeenCalledWith("s1", expect.objectContaining({
+      title: "My Title",
+      description: "Desc",
+      presentationType: "Poster"
+    }));
+  });
+
+  it("Student can view submitted abstract", async () => {
+    dao.findByIdentifier.mockResolvedValueOnce({
+      _id: "s1",
+      accountType: "Student",
+      email: "student@x.com",
+      password: "HASH"
+    });
+    dao.verifyPassword.mockResolvedValueOnce(true);
+    absDao.getAbstractByStudentId.mockResolvedValueOnce({
+      studentId: "s1",
+      title: "My Title",
+      description: "Desc",
+      presentationType: "Poster",
+      finalStatus: "Pending",
+      feedbackHistory: []
+    });
+
+    const agent = request.agent(app);
+    await agent.post("/login").send({ identifier: "student@x.com", password: "pw" });
+
+    const res = await agent.get("/student/abstract");
+    expect(res.statusCode).toBe(200);
+    expect(res.text).toContain("My Abstract");
+    expect(res.text).toContain("My Title");
+    expect(res.text).toContain("Feedback History");
   });
 });

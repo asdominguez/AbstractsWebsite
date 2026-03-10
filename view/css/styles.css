@@ -167,3 +167,17 @@ body {
   gap:12px;
   align-items:center;
 }
+
+
+.divider {
+  border: 0;
+  border-top: 1px solid rgba(0,0,0,0.08);
+  margin: 16px 0;
+}
+
+.kv {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 6px;
+}

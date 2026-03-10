@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Submit Abstract • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+        <a class="btn btn-secondary" href="/dashboard">Back</a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="card" aria-label="submit-abstract-card">
+        <h1 class="card-title">Submit Your Abstract</h1>
+        <p class="muted">Enter the title, description, and whether the submission is a poster or oral presentation.</p>
+
+        <form class="form" method="post" action="/student/abstract/submit" aria-label="submit-abstract-form">
+          <label class="label">
+            <span>Title</span>
+            <input class="input" type="text" name="title" required />
+          </label>
+
+          <label class="label">
+            <span>Description</span>
+            <textarea class="input" name="description" rows="6" required></textarea>
+          </label>
+
+          <label class="label">
+            <span>Type of Abstract</span>
+            <select class="input" name="presentationType" required>
+              <option value="Poster">Poster</option>
+              <option value="Oral">Oral Presentation</option>
+            </select>
+          </label>
+
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;">
+            <button class="btn" type="submit">Submit Abstract</button>
+            <a class="btn btn-secondary" href="/dashboard">Cancel</a>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
