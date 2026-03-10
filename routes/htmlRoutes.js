@@ -53,16 +53,16 @@ router.post("/register/reviewer", postRegisterReviewer);
 router.get("/register/committee", getRegisterCommittee);
 router.post("/register/committee", postRegisterCommittee);
 
+router.get("/committee-members", getCommitteeMembersPage);
 
-router.get("/admin/accounts", requireStudent,
-  requireAdmin, getAdminManageAccounts);
-router.post("/admin/accounts/:id/delete", requireStudent,
-  requireAdmin, postAdminDeleteAccount);
-
-
+router.get("/admin/accounts", requireAdmin, getAdminManageAccounts);
+router.post("/admin/accounts/:id/delete", requireAdmin, postAdminDeleteAccount);
 
 router.get("/reviewer/application", requireReviewer, getReviewerApplication);
 router.post("/reviewer/application", requireReviewer, postReviewerApplication);
+
+router.get("/committee/info", requireCommittee, getCommitteeInfoForm);
+router.post("/committee/info", requireCommittee, postCommitteeInfoForm);
 
 router.post("/committee/applications/:id/approve", requireCommittee, postCommitteeApproveApplication);
 router.post("/committee/applications/:id/deny", requireCommittee, postCommitteeDenyApplication);
@@ -70,17 +70,9 @@ router.post("/committee/applications/:id/deny", requireCommittee, postCommitteeD
 router.post("/committee/accounts/:id/approve", requireCommittee, postCommitteeApproveAccount);
 router.post("/committee/accounts/:id/deny", requireCommittee, postCommitteeDenyAccount);
 
-module.exports = router;
-
-
-router.get('/committee/info', requireCommittee, getCommitteeInfoForm);
-router.post('/committee/info', requireCommittee, postCommitteeInfoForm);
-router.get('/committee-members', getCommitteeMembersPage,
-  getAbstractSubmitForm,
-  postAbstractSubmit,
-  getStudentAbstractView);
-
 // Student abstract routes
-router.get('/student/abstract/submit', requireStudent, getAbstractSubmitForm);
-router.post('/student/abstract/submit', requireStudent, postAbstractSubmit);
-router.get('/student/abstract', requireStudent, getStudentAbstractView);
+router.get("/student/abstract/submit", requireStudent, getAbstractSubmitForm);
+router.post("/student/abstract/submit", requireStudent, postAbstractSubmit);
+router.get("/student/abstract", requireStudent, getStudentAbstractView);
+
+module.exports = router;

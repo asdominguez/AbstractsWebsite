@@ -286,6 +286,34 @@ async function getStudentDashboard(req, res) {
     if (!userId) return res.redirect("/login");
 
     const existing = await abstractDao.getAbstractByStudentId(userId);
+    const draftBadge = existing
+      ? `<span class="badge ${existing.submissionState === "Draft" ? "badge-draft" : "badge-submitted"}">${escapeHtml(existing.submissionState || "Submitted")}</span>`
+      : "";
+
+    const secondaryCard = existing
+      ? existing.submissionState === "Draft"
+        ? `<div class="tile tile-accent-student">
+            <h2>Continue Draft</h2>
+            <p>Pick up where you left off and finish preparing your abstract before submitting it.</p>
+            <div style="margin-top:10px;">
+              <a class="btn btn-secondary" href="/student/abstract/submit">Continue Draft</a>
+            </div>
+          </div>`
+        : `<div class="tile tile-accent-student">
+            <h2>View My Abstract</h2>
+            <p>Open your submitted abstract to see its current status and any reviewer feedback.</p>
+            <div style="margin-top:10px;">
+              <a class="btn btn-secondary" href="/student/abstract">View My Abstract</a>
+            </div>
+          </div>`
+      : `<div class="tile tile-accent-student">
+          <h2>Draft Saving</h2>
+          <p>You can save a draft at any time and return later to finish and submit it.</p>
+          <div style="margin-top:10px;">
+            <span class="badge badge-draft">Draft Enabled</span>
+          </div>
+        </div>`;
+
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -309,34 +337,33 @@ async function getStudentDashboard(req, res) {
 
     <main class="page">
       <section class="card">
-        <h1 class="card-title">Student Dashboard</h1>
-        <p class="muted" style="margin-top:0;">Submit and manage your abstracts.</p>
-
-        <div class="dashboard-grid">
-          <div class="tile">
-            <h2>Submit Abstract</h2>
-            <p>Create or update your abstract submission.</p>
-            <div style="margin-top:10px;">
-              <a class="btn" href="/student/abstract/submit">Open</a>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-student">
+            <span class="dashboard-kicker">Research Submission</span>
+            <h1>Student Dashboard</h1>
+            <p>Prepare your abstract, save your progress, and keep track of whether your work has been officially submitted.</p>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+              ${draftBadge}
+              ${existing?.finalStatus ? `<span class="badge badge-${String(existing.finalStatus).toLowerCase()}">${escapeHtml(existing.finalStatus)}</span>` : ""}
             </div>
-          </div>
+          </section>
 
-          ${
-            existing
-              ? `<div class="tile">
-                  <h2>View My Abstract</h2>
-                  <p>View your submitted abstract, status, and feedback history.</p>
-                  <div style="margin-top:10px;">
-                    <a class="btn btn-secondary" href="/student/abstract">View</a>
-                  </div>
-                </div>`
-              : ""
-          }
+          <section class="dashboard-grid">
+            <div class="tile tile-accent-student">
+              <h2>${existing ? "Edit Submission" : "Start Submission"}</h2>
+              <p>Create a new abstract, revise a saved draft, or update an existing submission.</p>
+              <div style="margin-top:10px;">
+                <a class="btn" href="/student/abstract/submit">${existing ? "Open Submission" : "Start Now"}</a>
+              </div>
+            </div>
+
+            ${secondaryCard}
+          </section>
+
+          <form method="post" action="/logout" style="margin-top: 6px;">
+            <button class="btn btn-secondary" type="submit">Logout</button>
+          </form>
         </div>
-
-        <form method="post" action="/logout" style="margin-top: 14px;">
-          <button class="btn btn-secondary" type="submit">Logout</button>
-        </form>
       </section>
     </main>
   </body>
@@ -348,8 +375,85 @@ async function getStudentDashboard(req, res) {
   }
 }
 
-function getAbstractSubmitForm(req, res) {
-  return sendView(res, "abstract-submit.html");
+async function getAbstractSubmitForm(req, res) {
+  try {
+    const userId = req.session?.user?.id;
+    if (!userId) return res.redirect("/login");
+
+    const existing = await abstractDao.getAbstractByStudentId(userId);
+    const title = escapeHtml(existing?.title || "");
+    const description = escapeHtml(existing?.description || "");
+    const presentationType = String(existing?.presentationType || "Poster");
+    const submissionState = escapeHtml(existing?.submissionState || "Draft");
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Submit Abstract • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+        <a class="btn btn-secondary" href="/dashboard">Back</a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-student">
+            <span class="dashboard-kicker">Abstract Workspace</span>
+            <h1>${existing ? "Continue Your Abstract" : "Start Your Abstract"}</h1>
+            <p>Use Save Draft to keep your work in progress, then come back later and submit when you are ready.</p>
+            <div style="margin-top:14px;">
+              <span class="badge ${submissionState === "Draft" ? "badge-draft" : "badge-submitted"}">${submissionState}</span>
+            </div>
+          </section>
+
+          <form class="form" method="post" action="/student/abstract/submit" aria-label="submit-abstract-form">
+            <label class="label">
+              <span>Title</span>
+              <input class="input" type="text" name="title" value="${title}" required />
+            </label>
+
+            <label class="label">
+              <span>Description</span>
+              <textarea class="input" name="description" rows="8" required>${description}</textarea>
+            </label>
+
+            <label class="label">
+              <span>Type of Abstract</span>
+              <select class="input" name="presentationType" required>
+                <option value="Poster" ${presentationType === "Poster" ? "selected" : ""}>Poster</option>
+                <option value="Oral" ${presentationType === "Oral" ? "selected" : ""}>Oral Presentation</option>
+              </select>
+            </label>
+
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;">
+              <button class="btn btn-secondary" type="submit" name="intent" value="draft" formnovalidate>Save Draft</button>
+              <button class="btn" type="submit" name="intent" value="submit">Submit Abstract</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(500).send(`Could not load abstract form: ${err.message}`);
+  }
 }
 
 async function postAbstractSubmit(req, res) {
@@ -357,11 +461,21 @@ async function postAbstractSubmit(req, res) {
     const userId = req.session?.user?.id;
     if (!userId) return res.redirect("/login");
 
-    await abstractDao.upsertStudentAbstract(userId, {
-      title: req.body?.title,
-      description: req.body?.description,
-      presentationType: req.body?.presentationType
-    });
+    const intent = String(req.body?.intent || "submit").trim().toLowerCase();
+
+    if (intent === "draft") {
+      await abstractDao.saveStudentAbstractDraft(userId, {
+        title: req.body?.title,
+        description: req.body?.description,
+        presentationType: req.body?.presentationType
+      });
+    } else {
+      await abstractDao.submitStudentAbstract(userId, {
+        title: req.body?.title,
+        description: req.body?.description,
+        presentationType: req.body?.presentationType
+      });
+    }
 
     return res.redirect("/dashboard");
   } catch (err) {
@@ -414,6 +528,7 @@ async function getStudentAbstractView(req, res) {
     const description = escapeHtml(abs.description || "");
     const presentationType = escapeHtml(abs.presentationType || "");
     const finalStatus = escapeHtml(abs.finalStatus || "Pending");
+    const submissionState = escapeHtml(abs.submissionState || "Submitted");
     const lastUpdated = abs.lastUpdated ? escapeHtml(new Date(abs.lastUpdated).toLocaleString()) : "";
     const feedbackRows = (abs.feedbackHistory || [])
       .map((f) => {
@@ -451,40 +566,49 @@ async function getStudentAbstractView(req, res) {
 
     <main class="page">
       <section class="card">
-        <h1 class="card-title">My Abstract</h1>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-student">
+            <span class="dashboard-kicker">My Submission</span>
+            <h1>${title || "My Abstract"}</h1>
+            <p>Track the latest version of your abstract and monitor any reviewer feedback.</p>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+              <span class="badge ${submissionState === "Draft" ? "badge-draft" : "badge-submitted"}">${submissionState}</span>
+              <span class="badge badge-${String(finalStatus).toLowerCase()}">${finalStatus}</span>
+            </div>
+          </section>
 
-        <div class="kv">
-          <div><span class="muted">Type:</span> ${presentationType}</div>
-          <div><span class="muted">Status:</span> <strong>${finalStatus}</strong></div>
-          <div><span class="muted">Last Updated:</span> ${lastUpdated}</div>
-        </div>
+          <div class="kv">
+            <div><span class="muted">Type:</span> ${presentationType}</div>
+            <div><span class="muted">Last Updated:</span> ${lastUpdated}</div>
+          </div>
 
-        <hr class="divider" />
+          <hr class="divider" />
 
-        <h2 style="margin: 0 0 8px 0;">${title}</h2>
-        <p style="white-space: pre-wrap;">${description}</p>
+          <h2 style="margin: 0 0 8px 0;">Description</h2>
+          <p style="white-space: pre-wrap;">${description}</p>
 
-        <div style="margin-top:14px;">
-          <a class="btn" href="/student/abstract/submit">Edit / Resubmit</a>
-        </div>
+          <div style="margin-top:14px;">
+            <a class="btn" href="/student/abstract/submit">${submissionState === "Draft" ? "Continue Draft" : "Edit / Resubmit"}</a>
+          </div>
 
-        <hr class="divider" />
+          <hr class="divider" />
 
-        <h2 style="margin: 0 0 8px 0;">Feedback History</h2>
-        <div class="table-wrap">
-          <table class="table" aria-label="feedback history">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Reviewer</th>
-                <th>Decision</th>
-                <th>Feedback</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${feedbackRows || `<tr><td colspan="4" class="muted">No feedback yet.</td></tr>`}
-            </tbody>
-          </table>
+          <h2 style="margin: 0 0 8px 0;">Feedback History</h2>
+          <div class="table-wrap">
+            <table class="table" aria-label="feedback history">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Reviewer</th>
+                  <th>Decision</th>
+                  <th>Feedback</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${feedbackRows || `<tr><td colspan="4" class="muted">No feedback yet.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
     </main>
@@ -592,11 +716,14 @@ async function getCommitteeDashboard(req, res) {
 
     <main class="page">
       <section class="card">
-        <h1 class="card-title">Committee Dashboard</h1>
-        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:10px;">
-          <a class="btn" href="/committee/info">My Info</a>
-        </div>
-        <p class="muted" style="margin-top:0;">Next: committee review and final approval workflow.</p>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-committee">
+            <span class="dashboard-kicker">Committee Review</span>
+            <h1>Committee Dashboard</h1>
+            <p>Oversee volunteer applications, pending accounts, and final review actions for the colloquium.</p>
+            <div style="margin-top:14px;"><a class="btn" href="/committee/info">My Info</a></div>
+          </section>
+          <p class="muted" style="margin-top:0;">Committee actions and pending review queues appear below.</p>
 
         <h2 class="section-title">Review Applications</h2>
         <p class="muted" style="margin-top:0;">Pending reviewer volunteer applications are listed here.</p>
@@ -636,6 +763,7 @@ async function getCommitteeDashboard(req, res) {
         <form method="post" action="/logout" style="margin-top: 14px;">
           <button class="btn btn-secondary" type="submit">Logout</button>
         </form>
+        </div>
       </section>
     </main>
   </body>

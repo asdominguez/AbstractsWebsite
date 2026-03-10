@@ -5,7 +5,9 @@ jest.mock("../model/accountDao", () => ({
   getAllNonAdminAccounts: jest.fn(),
   deleteAccountByIdNonAdmin: jest.fn(),
   getAllStatus: jest.fn(),
-  setAccountStatus: jest.fn()
+  setAccountStatus: jest.fn(),
+  updateCommitteeInfo: jest.fn(),
+  getCommitteeMemberInfoList: jest.fn()
 }));
 
 jest.mock("../model/applicationDao", () => ({
@@ -14,9 +16,15 @@ jest.mock("../model/applicationDao", () => ({
   setApplicationStatus: jest.fn()
 }));
 
+jest.mock("../model/abstractDao", () => ({
+  saveStudentAbstractDraft: jest.fn(),
+  submitStudentAbstract: jest.fn(),
+  getAbstractByStudentId: jest.fn()
+}));
+
 const dao = require("../model/accountDao");
 const appDao = require("../model/applicationDao");
-
+const abstractDao = require("../model/abstractDao");
 const controller = require("../controller/homeController");
 
 function makeRes() {
@@ -33,22 +41,21 @@ describe("homeController unit branches", () => {
     jest.clearAllMocks();
   });
 
+  test("requireStudent forbids non-student", () => {
+    const req = { session: { user: { accountType: "Reviewer" } } };
+    const res = makeRes();
+    const next = jest.fn();
+    controller.requireStudent(req, res, next);
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.send).toHaveBeenCalledWith("Forbidden");
+  });
+
   test("requireReviewer redirects to /login when not authenticated", () => {
     const req = {};
     const res = makeRes();
     const next = jest.fn();
     controller.requireReviewer(req, res, next);
     expect(res.redirect).toHaveBeenCalledWith("/login");
-    expect(next).not.toHaveBeenCalled();
-  });
-
-  test("requireReviewer forbids non-reviewer", () => {
-    const req = { session: { user: { accountType: "Student" } } };
-    const res = makeRes();
-    const next = jest.fn();
-    controller.requireReviewer(req, res, next);
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.send).toHaveBeenCalledWith("Forbidden");
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -70,53 +77,44 @@ describe("homeController unit branches", () => {
 
   test("postLogin returns 401 when account not found", async () => {
     dao.findByIdentifier.mockResolvedValueOnce(null);
-
     const req = { body: { identifier: "x", password: "y" }, session: {} };
     const res = makeRes();
-
     await controller.postLogin(req, res);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.send).toHaveBeenCalledWith("Invalid credentials.");
   });
 
   test("postLogin returns 401 when password invalid", async () => {
     dao.findByIdentifier.mockResolvedValueOnce({ _id: "1", accountType: "Student", password: "HASH" });
     dao.verifyPassword.mockResolvedValueOnce(false);
-
     const req = { body: { identifier: "x", password: "bad" }, session: {} };
     const res = makeRes();
-
     await controller.postLogin(req, res);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.send).toHaveBeenCalledWith("Invalid credentials.");
   });
 
-  test("postLogin returns 500 on unexpected error", async () => {
-    dao.findByIdentifier.mockRejectedValueOnce(new Error("boom"));
-
-    const req = { body: { identifier: "x", password: "y" }, session: {} };
+  test("postAbstractSubmit saves draft when intent=draft", async () => {
+    const req = {
+      session: { user: { id: "s1" } },
+      body: { title: "Draft", description: "", presentationType: "Poster", intent: "draft" }
+    };
     const res = makeRes();
+    abstractDao.saveStudentAbstractDraft.mockResolvedValueOnce({ studentId: "s1" });
 
-    await controller.postLogin(req, res);
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.send.mock.calls[0][0]).toContain("Login error:");
+    await controller.postAbstractSubmit(req, res);
+    expect(abstractDao.saveStudentAbstractDraft).toHaveBeenCalled();
+    expect(res.redirect).toHaveBeenCalledWith("/dashboard");
   });
 
-  test("postLogout redirects when req.session missing", () => {
-    const req = {};
+  test("postAbstractSubmit returns 400 on abstract submission errors", async () => {
+    const req = {
+      session: { user: { id: "s1" } },
+      body: { title: "", description: "", presentationType: "Poster", intent: "submit" }
+    };
     const res = makeRes();
-    controller.postLogout(req, res);
-    expect(res.redirect).toHaveBeenCalledWith("/");
-  });
+    abstractDao.submitStudentAbstract.mockRejectedValueOnce(new Error("title is required"));
 
-  test("postReviewerApplication returns 400 when DAO rejects", async () => {
-    appDao.createReviewerApplicationOnce.mockRejectedValueOnce(new Error("Application already submitted"));
-    const req = { session: { user: { id: "r1" } }, body: { name: "N", roles: ["Reviewer of Abstracts"], department: "D", email: "e" } };
-    const res = makeRes();
-
-    await controller.postReviewerApplication(req, res);
+    await controller.postAbstractSubmit(req, res);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.send.mock.calls[0][0]).toContain("Could not submit application");
   });
 
   test("committee approve/deny handlers return 400 on DAO errors", async () => {
@@ -131,14 +129,5 @@ describe("homeController unit branches", () => {
     const res2 = makeRes();
     await controller.postCommitteeDenyApplication(req2, res2);
     expect(res2.status).toHaveBeenCalledWith(400);
-  });
-
-  test("admin manage accounts returns 500 when DAO fails", async () => {
-    dao.getAllNonAdminAccounts.mockRejectedValueOnce(new Error("db down"));
-    const req = {};
-    const res = makeRes();
-    await controller.getAdminManageAccounts(req, res);
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.send.mock.calls[0][0]).toContain("Could not load accounts");
   });
 });

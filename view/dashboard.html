@@ -14,18 +14,28 @@
         </div>
         <span class="brand-name">Abstract Portal</span>
       </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+      </div>
     </header>
 
     <main class="page">
-      <section class="card" aria-label="dashboard-card">
-        <h1 class="card-title">You’re logged in</h1>
-        <p class="muted" style="margin-top: 0;">
-          Next step: route based on account type and add abstract submission/review flows.
-        </p>
+      <section class="card">
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-admin">
+            <span class="dashboard-kicker">General Access</span>
+            <h1>Dashboard</h1>
+            <p>Your account is active, but a role-specific dashboard is not yet available.</p>
+          </section>
 
-        <form method="post" action="/logout" style="margin-top: 14px;">
-          <button class="btn btn-secondary" type="submit">Logout</button>
-        </form>
+          <section class="dashboard-grid">
+            <div class="tile"><h2>Continue</h2><p>Use the main navigation and your role-based pages as features become available.</p><div><a class="btn" href="/committee-members">Committee Member Info</a></div></div>
+          </section>
+
+          <form method="post" action="/logout" style="margin-top: 6px;">
+            <button class="btn btn-secondary" type="submit">Logout</button>
+          </form>
+        </div>
       </section>
     </main>
   </body>

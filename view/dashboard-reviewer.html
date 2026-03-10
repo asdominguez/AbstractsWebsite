@@ -21,16 +21,23 @@
 
     <main class="page">
       <section class="card">
-        <h1 class="card-title">Reviewer Dashboard</h1>
-        <p class="muted" style="margin-top:0;">Next: review assigned abstracts and give feedback.</p>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-reviewer">
+            <span class="dashboard-kicker">Review Team</span>
+            <h1>Reviewer Dashboard</h1>
+            <p>Evaluate abstracts, volunteer for judging roles, and support the colloquium review process.</p>
+          </section>
 
-        <div style="margin-top: 14px;">
-          <a class="btn" href="/reviewer/application">Submit Application</a>
+          <section class="dashboard-grid">
+            <div class="tile tile-accent-reviewer"><h2>Reviewer Application</h2><p>Volunteer for reviewing or judging roles and keep your application up to date.</p><div><a class="btn" href="/reviewer/application">Submit Application</a></div></div>
+<div class="tile tile-accent-reviewer"><h2>Assigned Work</h2><p>Your future assigned abstracts and review tasks will appear here.</p><div><span class="badge">Coming Soon</span></div></div>
+<div class="tile tile-accent-reviewer"><h2>Reviewer Notes</h2><p>Track feedback history and maintain consistent reviews over time.</p><div><span class="badge">Planned</span></div></div>
+          </section>
+
+          <form method="post" action="/logout" style="margin-top: 6px;">
+            <button class="btn btn-secondary" type="submit">Logout</button>
+          </form>
         </div>
-
-        <form method="post" action="/logout" style="margin-top: 14px;">
-          <button class="btn btn-secondary" type="submit">Logout</button>
-        </form>
       </section>
     </main>
   </body>

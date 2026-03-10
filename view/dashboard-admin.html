@@ -14,20 +14,30 @@
         </div>
         <span class="brand-name">Abstract Portal</span>
       </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+      </div>
     </header>
 
     <main class="page">
       <section class="card">
-        <h1 class="card-title">Admin Dashboard</h1>
-        <p class="muted" style="margin-top:0;">Next: manage users, settings, and system configuration.</p>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-admin">
+            <span class="dashboard-kicker">Administration</span>
+            <h1>Admin Dashboard</h1>
+            <p>Maintain user access, system integrity, and the operational side of the colloquium platform.</p>
+          </section>
 
-        <div style="margin-top: 14px;">
-          <a class="btn" href="/admin/accounts">Manage Accounts</a>
+          <section class="dashboard-grid">
+            <div class="tile tile-accent-admin"><h2>Manage Accounts</h2><p>Approve, remove, and maintain active user accounts across the system.</p><div><a class="btn" href="/admin/accounts">Manage Accounts</a></div></div>
+<div class="tile tile-accent-admin"><h2>System Oversight</h2><p>Administrative content and configuration tools will expand here as the project grows.</p><div><span class="badge">Admin Tools</span></div></div>
+<div class="tile tile-accent-admin"><h2>Colloquium Health</h2><p>Use this dashboard as the operational overview for account and workflow management.</p><div><span class="badge">Overview</span></div></div>
+          </section>
+
+          <form method="post" action="/logout" style="margin-top: 6px;">
+            <button class="btn btn-secondary" type="submit">Logout</button>
+          </form>
         </div>
-
-        <form method="post" action="/logout" style="margin-top: 14px;">
-          <button class="btn btn-secondary" type="submit">Logout</button>
-        </form>
       </section>
     </main>
   </body>

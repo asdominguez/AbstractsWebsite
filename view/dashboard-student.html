@@ -21,12 +21,21 @@
 
     <main class="page">
       <section class="card">
-        <h1 class="card-title">Student Dashboard</h1>
-        <p class="muted" style="margin-top:0;">Next: submit and manage your abstracts.</p>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-student">
+            <span class="dashboard-kicker">Research Submission</span>
+            <h1>Student Dashboard</h1>
+            <p>Prepare your abstract, save draft work, and track feedback and final status.</p>
+          </section>
 
-        <form method="post" action="/logout" style="margin-top: 14px;">
-          <button class="btn btn-secondary" type="submit">Logout</button>
-        </form>
+          <section class="dashboard-grid">
+            <div class="tile tile-accent-student"><h2>Submit Abstract</h2><p>Start a new draft or update your abstract for submission.</p><div><a class="btn" href="/student/abstract/submit">Open</a></div></div>
+          </section>
+
+          <form method="post" action="/logout" style="margin-top: 6px;">
+            <button class="btn btn-secondary" type="submit">Logout</button>
+          </form>
+        </div>
       </section>
     </main>
   </body>

@@ -21,34 +21,9 @@
     </header>
 
     <main class="page">
-      <section class="card" aria-label="submit-abstract-card">
-        <h1 class="card-title">Submit Your Abstract</h1>
-        <p class="muted">Enter the title, description, and whether the submission is a poster or oral presentation.</p>
-
-        <form class="form" method="post" action="/student/abstract/submit" aria-label="submit-abstract-form">
-          <label class="label">
-            <span>Title</span>
-            <input class="input" type="text" name="title" required />
-          </label>
-
-          <label class="label">
-            <span>Description</span>
-            <textarea class="input" name="description" rows="6" required></textarea>
-          </label>
-
-          <label class="label">
-            <span>Type of Abstract</span>
-            <select class="input" name="presentationType" required>
-              <option value="Poster">Poster</option>
-              <option value="Oral">Oral Presentation</option>
-            </select>
-          </label>
-
-          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;">
-            <button class="btn" type="submit">Submit Abstract</button>
-            <a class="btn btn-secondary" href="/dashboard">Cancel</a>
-          </div>
-        </form>
+      <section class="card">
+        <h1 class="card-title">Submit Abstract</h1>
+        <p class="muted">Loading your submission form…</p>
       </section>
     </main>
   </body>

@@ -9,47 +9,88 @@ jest.mock("../model/Account", () => ({
 
 const Abstract = require("../model/Abstract");
 const Account = require("../model/Account");
-const { upsertStudentAbstract, getAbstractByStudentId } = require("../model/abstractDao");
+const {
+  saveStudentAbstractDraft,
+  submitStudentAbstract,
+  getAbstractByStudentId
+} = require("../model/abstractDao");
 
 describe("abstractDao", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it("throws if studentId missing", async () => {
-    await expect(upsertStudentAbstract("", { title: "t", description: "d", presentationType: "Poster" })).rejects.toThrow("studentId is required");
-  });
-
-  it("throws if title missing", async () => {
-    await expect(upsertStudentAbstract("s1", { description: "d", presentationType: "Poster" })).rejects.toThrow("title is required");
-  });
-
-  it("creates or updates abstract", async () => {
-    Account.findById.mockReturnValueOnce({
-      select: jest.fn().mockReturnThis(),
-      lean: jest.fn().mockResolvedValue({ username: "Alice", subjectArea: "Biology", email: "a@x.com" })
-    });
-    Abstract.findOneAndUpdate.mockReturnValueOnce({
-      lean: jest.fn().mockResolvedValue({ studentId: "s1", title: "My Title" })
+  describe("saveStudentAbstractDraft", () => {
+    it("throws if studentId missing", async () => {
+      await expect(saveStudentAbstractDraft("", { title: "t" })).rejects.toThrow("studentId is required");
     });
 
-    const res = await upsertStudentAbstract("s1", { title: "My Title", description: "Desc", presentationType: "Poster" });
+    it("saves a draft with partial data", async () => {
+      Account.findById.mockReturnValueOnce({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue({ username: "Alice", subjectArea: "Biology", email: "a@x.com" })
+      });
+      Abstract.findOneAndUpdate.mockReturnValueOnce({
+        lean: jest.fn().mockResolvedValue({ studentId: "s1", submissionState: "Draft" })
+      });
 
-    expect(Abstract.findOneAndUpdate).toHaveBeenCalledWith(
-      { studentId: "s1" },
-      { $set: expect.objectContaining({ studentName: "Alice", studentField: "Biology", title: "My Title", presentationType: "Poster" }) },
-      { new: true, upsert: true }
-    );
-    expect(res.title).toBe("My Title");
+      const res = await saveStudentAbstractDraft("s1", {
+        title: "Draft Title",
+        description: "",
+        presentationType: "Poster"
+      });
+
+      expect(Abstract.findOneAndUpdate).toHaveBeenCalledWith(
+        { studentId: "s1" },
+        { $set: expect.objectContaining({ studentName: "Alice", studentField: "Biology", title: "Draft Title", submissionState: "Draft" }) },
+        { new: true, upsert: true }
+      );
+      expect(res.submissionState).toBe("Draft");
+    });
   });
 
-  it("getAbstractByStudentId throws if missing id", async () => {
-    await expect(getAbstractByStudentId("")).rejects.toThrow("studentId is required");
+  describe("submitStudentAbstract", () => {
+    it("throws if studentId missing", async () => {
+      await expect(submitStudentAbstract("", { title: "t", description: "d", presentationType: "Poster" })).rejects.toThrow("studentId is required");
+    });
+
+    it("throws if title missing", async () => {
+      await expect(submitStudentAbstract("s1", { description: "d", presentationType: "Poster" })).rejects.toThrow("title is required");
+    });
+
+    it("creates or updates a submitted abstract", async () => {
+      Account.findById.mockReturnValueOnce({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockResolvedValue({ username: "Alice", subjectArea: "Biology", email: "a@x.com" })
+      });
+      Abstract.findOneAndUpdate.mockReturnValueOnce({
+        lean: jest.fn().mockResolvedValue({ studentId: "s1", title: "My Title", submissionState: "Submitted" })
+      });
+
+      const res = await submitStudentAbstract("s1", {
+        title: "My Title",
+        description: "Desc",
+        presentationType: "Poster"
+      });
+
+      expect(Abstract.findOneAndUpdate).toHaveBeenCalledWith(
+        { studentId: "s1" },
+        { $set: expect.objectContaining({ studentName: "Alice", studentField: "Biology", title: "My Title", submissionState: "Submitted", finalStatus: "Pending" }) },
+        { new: true, upsert: true }
+      );
+      expect(res.submissionState).toBe("Submitted");
+    });
   });
 
-  it("getAbstractByStudentId returns abstract", async () => {
-    Abstract.findOne.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue({ studentId: "s1" }) });
-    const res = await getAbstractByStudentId("s1");
-    expect(res.studentId).toBe("s1");
+  describe("getAbstractByStudentId", () => {
+    it("throws if missing id", async () => {
+      await expect(getAbstractByStudentId("")).rejects.toThrow("studentId is required");
+    });
+
+    it("returns abstract", async () => {
+      Abstract.findOne.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue({ studentId: "s1" }) });
+      const res = await getAbstractByStudentId("s1");
+      expect(res.studentId).toBe("s1");
+    });
   });
 });

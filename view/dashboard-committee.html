@@ -21,12 +21,21 @@
 
     <main class="page">
       <section class="card">
-        <h1 class="card-title">Committee Dashboard</h1>
-        <p class="muted" style="margin-top:0;">Next: committee review and final approval workflow.</p>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-committee">
+            <span class="dashboard-kicker">Committee Review</span>
+            <h1>Committee Dashboard</h1>
+            <p>Coordinate volunteer applications, pending accounts, and final colloquium oversight.</p>
+          </section>
 
-        <form method="post" action="/logout" style="margin-top: 14px;">
-          <button class="btn btn-secondary" type="submit">Logout</button>
-        </form>
+          <section class="dashboard-grid">
+            <div class="tile tile-accent-committee"><h2>Committee Info</h2><p>Update your profile and public committee-facing information.</p><div><a class="btn" href="/committee/info">My Info</a></div></div>
+          </section>
+
+          <form method="post" action="/logout" style="margin-top: 6px;">
+            <button class="btn btn-secondary" type="submit">Logout</button>
+          </form>
+        </div>
       </section>
     </main>
   </body>

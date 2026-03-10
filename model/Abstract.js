@@ -17,10 +17,11 @@ const AbstractSchema = new mongoose.Schema(
     studentName: { type: String, trim: true, required: true },
     studentField: { type: String, trim: true },
 
-    title: { type: String, trim: true, required: true },
-    description: { type: String, trim: true, required: true },
-    presentationType: { type: String, required: true, enum: ["Poster", "Oral"] },
+    title: { type: String, trim: true, default: "" },
+    description: { type: String, trim: true, default: "" },
+    presentationType: { type: String, enum: ["Poster", "Oral"], default: "Poster" },
 
+    submissionState: { type: String, required: true, enum: ["Draft", "Submitted"], default: "Draft" },
     lastUpdated: { type: Date, default: Date.now },
 
     feedbackHistory: { type: [FeedbackSchema], default: [] },
