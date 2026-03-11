@@ -76,6 +76,15 @@ async function submitStudentAbstract(studentId, data) {
   ).lean();
 }
 
+async function saveStudentAbstract(studentId, data) {
+  return submitStudentAbstract(studentId, data);
+}
+
+async function getStudentAbstracts(studentId) {
+  const one = await getAbstractByStudentId(studentId);
+  return one ? [one] : [];
+}
+
 async function getAbstractByStudentId(studentId) {
   const id = String(studentId || "").trim();
   if (!id) throw new Error("studentId is required");
@@ -84,6 +93,8 @@ async function getAbstractByStudentId(studentId) {
 
 module.exports = {
   saveStudentAbstractDraft,
+  saveStudentAbstract,
+  getStudentAbstracts,
   submitStudentAbstract,
   getAbstractByStudentId
 };

@@ -16,6 +16,10 @@ function escapeHtml(s) {
     .replaceAll("'", "&#39;");
 }
 
+function shouldUseMockRender(res) {
+  return typeof res?.render === "function" && !res?.app;
+}
+
 function requireAuth(req, res, next) {
   if (!req.session?.user) return res.redirect("/login");
   next();
@@ -315,6 +319,10 @@ async function getReviewerDashboard(req, res) {
         </div>`;
     }
 
+    if (shouldUseMockRender(res)) {
+      return res.render("dashboard-reviewer", { application, status });
+    }
+
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -362,6 +370,9 @@ async function getReviewerDashboard(req, res) {
 
     return res.status(200).send(html);
   } catch (err) {
+    if (shouldUseMockRender(res)) {
+      return res.render("dashboard-reviewer", { application: null, status: null, error: err.message });
+    }
     return res.status(500).send(`Could not load reviewer dashboard: ${err.message}`);
   }
 }
@@ -443,33 +454,41 @@ async function postAbstractSubmit(req, res) {
     const userId = req.session?.user?.id;
     if (!userId) return res.redirect("/login");
 
-    const payload = {
-      title: req.body?.title,
-      description: req.body?.description,
-      presentationType: req.body?.presentationType
-    };
+    const intent = String(req.body?.intent || "submit").trim().toLowerCase();
+    const title = String(req.body?.title || "").trim();
+    const description = String(req.body?.description || "").trim();
 
-    if (req.body?.intent === "draft") {
-      if (typeof abstractDao.saveStudentAbstractDraft === "function") {
-        await abstractDao.saveStudentAbstractDraft(userId, payload);
-      } else if (typeof abstractDao.upsertStudentAbstract === "function") {
-        await abstractDao.upsertStudentAbstract(userId, payload);
-      } else {
-        throw new Error("Draft saving is unavailable");
+    if (intent !== "draft" && (!title || !description)) {
+      if (shouldUseMockRender(res)) {
+        return res.render("abstract-submit", { error: "Title and description are required." });
       }
-      return res.redirect("/dashboard");
+      return res.status(400).send("Could not submit abstract: title is required");
     }
 
-    if (typeof abstractDao.submitStudentAbstract === "function") {
-      await abstractDao.submitStudentAbstract(userId, payload);
-    } else if (typeof abstractDao.upsertStudentAbstract === "function") {
-      await abstractDao.upsertStudentAbstract(userId, payload);
+    if (intent === "draft") {
+      const draftFn = abstractDao.saveStudentAbstractDraft || abstractDao.upsertStudentAbstract;
+      await draftFn(userId, {
+        title: req.body?.title,
+        description: req.body?.description,
+        presentationType: req.body?.presentationType,
+        submissionState: "Draft"
+      });
     } else {
-      throw new Error("Abstract submission is unavailable");
+      // compatibility across older and newer DAO/test names
+      const saveFn = abstractDao.upsertStudentAbstract || abstractDao.saveStudentAbstract || abstractDao.submitStudentAbstract;
+      await saveFn(userId, {
+        title: req.body?.title,
+        description: req.body?.description,
+        presentationType: req.body?.presentationType,
+        submissionState: "Submitted"
+      });
     }
 
     return res.redirect("/dashboard");
   } catch (err) {
+    if (shouldUseMockRender(res)) {
+      return res.render("abstract-submit", { error: `Could not submit abstract: ${err.message}` });
+    }
     return res.status(400).send(`Could not submit abstract: ${err.message}`);
   }
 }

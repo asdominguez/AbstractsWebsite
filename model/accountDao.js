@@ -19,6 +19,10 @@ async function findByEmail(email) {
   return Account.findOne({ email: e }).lean();
 }
 
+async function getUserByEmail(email) {
+  return findByEmail(email);
+}
+
 async function findByIdentifier(identifier) {
   const id = String(identifier || "").trim();
   if (!id) return null;
@@ -142,6 +146,7 @@ async function getCommitteeMemberInfoList() {
 
 
 module.exports = {
+  getUserByEmail,
   findByUsername,
   findByEmail,
   findByIdentifier,
