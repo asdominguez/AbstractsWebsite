@@ -383,6 +383,51 @@ async function getStudentDashboard(req, res) {
     if (!userId) return res.redirect("/login");
 
     const existing = await abstractDao.getAbstractByStudentId(userId);
+    const submissionState = String(existing?.submissionState || "").trim();
+    const finalStatus = String(existing?.finalStatus || "Pending").trim();
+
+    const statusBadges = [];
+    if (submissionState) {
+      statusBadges.push(
+        `<span class="badge ${submissionState === "Draft" ? "badge-draft" : "badge-submitted"}">${escapeHtml(submissionState)}</span>`
+      );
+    }
+    if (existing) {
+      statusBadges.push(
+        `<span class="badge badge-${escapeHtml(finalStatus.toLowerCase())}">${escapeHtml(finalStatus)}</span>`
+      );
+    }
+
+    const primaryLabel = existing
+      ? submissionState === "Draft"
+        ? "Continue Draft"
+        : "Edit Submission"
+      : "Start Submission";
+
+    const secondaryTile = existing
+      ? submissionState === "Draft"
+        ? `<div class="tile tile-accent-student">
+            <h2>Draft in Progress</h2>
+            <p>Your abstract has been saved as a draft. Come back anytime to finish and submit it.</p>
+            <div style="margin-top:10px;">
+              <a class="btn btn-secondary" href="/student/abstract/submit">Continue Draft</a>
+            </div>
+          </div>`
+        : `<div class="tile tile-accent-student">
+            <h2>View My Abstract</h2>
+            <p>Open your submitted abstract to view its status, feedback history, and latest details.</p>
+            <div style="margin-top:10px;">
+              <a class="btn btn-secondary" href="/student/abstract">View My Abstract</a>
+            </div>
+          </div>`
+      : `<div class="tile tile-accent-student">
+          <h2>Save Drafts</h2>
+          <p>You can begin your abstract now, save it as a draft, and come back later before submitting.</p>
+          <div style="margin-top:10px;">
+            <span class="badge badge-draft">Draft Enabled</span>
+          </div>
+        </div>`;
+
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -406,34 +451,32 @@ async function getStudentDashboard(req, res) {
 
     <main class="page">
       <section class="card">
-        <h1 class="card-title">Student Dashboard</h1>
-        <p class="muted" style="margin-top:0;">Submit and manage your abstracts.</p>
-
-        <div class="dashboard-grid">
-          <div class="tile">
-            <h2>Submit Abstract</h2>
-            <p>Create or update your abstract submission.</p>
-            <div style="margin-top:10px;">
-              <a class="btn" href="/student/abstract/submit">Open</a>
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-student">
+            <span class="dashboard-kicker">Research Submission</span>
+            <h1>Student Dashboard</h1>
+            <p>Prepare your abstract, save draft work, and track review status from one place.</p>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+              ${statusBadges.join("")}
             </div>
-          </div>
+          </section>
 
-          ${
-            existing
-              ? `<div class="tile">
-                  <h2>View My Abstract</h2>
-                  <p>View your submitted abstract, status, and feedback history.</p>
-                  <div style="margin-top:10px;">
-                    <a class="btn btn-secondary" href="/student/abstract">View</a>
-                  </div>
-                </div>`
-              : ""
-          }
+          <section class="dashboard-grid">
+            <div class="tile tile-accent-student">
+              <h2>${primaryLabel}</h2>
+              <p>Create a new abstract, revise your saved draft, or update your latest submission.</p>
+              <div style="margin-top:10px;">
+                <a class="btn" href="/student/abstract/submit">${primaryLabel}</a>
+              </div>
+            </div>
+
+            ${secondaryTile}
+          </section>
+
+          <form method="post" action="/logout" style="margin-top: 6px;">
+            <button class="btn btn-secondary" type="submit">Logout</button>
+          </form>
         </div>
-
-        <form method="post" action="/logout" style="margin-top: 14px;">
-          <button class="btn btn-secondary" type="submit">Logout</button>
-        </form>
       </section>
     </main>
   </body>
@@ -445,7 +488,93 @@ async function getStudentDashboard(req, res) {
   }
 }
 
-function getAbstractSubmitForm(req, res) {
+async function getAbstractSubmitForm(req, res) {
+  try {
+    const userId = req.session?.user?.id;
+    if (!userId) return res.redirect("/login");
+
+    const existing = await abstractDao.getAbstractByStudentId(userId);
+
+    const title = escapeHtml(existing?.title || "");
+    const description = escapeHtml(existing?.description || "");
+    const presentationType = String(existing?.presentationType || "Poster");
+    const submissionState = String(existing?.submissionState || "Draft");
+    const lastUpdated = existing?.lastUpdated
+      ? escapeHtml(new Date(existing.lastUpdated).toLocaleString())
+      : "";
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Submit Abstract • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+        <a class="btn btn-secondary" href="/dashboard">Back</a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <div class="dashboard-shell">
+          <section class="dashboard-hero hero-student">
+            <span class="dashboard-kicker">Abstract Workspace</span>
+            <h1>${existing ? "Edit Your Abstract" : "Start Your Abstract"}</h1>
+            <p>Use Save Draft to keep your work in progress, then come back later and submit when you are ready.</p>
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+              <span class="badge ${submissionState === "Draft" ? "badge-draft" : "badge-submitted"}">${escapeHtml(submissionState)}</span>
+              ${lastUpdated ? `<span class="badge">Updated ${lastUpdated}</span>` : ""}
+            </div>
+          </section>
+
+          <form class="form" method="post" action="/student/abstract/submit" aria-label="submit-abstract-form">
+            <label class="label">
+              <span>Title</span>
+              <input class="input" type="text" name="title" value="${title}" />
+            </label>
+
+            <label class="label">
+              <span>Description</span>
+              <textarea class="input" name="description" rows="8">${description}</textarea>
+            </label>
+
+            <label class="label">
+              <span>Type of Abstract</span>
+              <select class="input" name="presentationType">
+                <option value="Poster" ${presentationType === "Poster" ? "selected" : ""}>Poster</option>
+                <option value="Oral" ${presentationType === "Oral" ? "selected" : ""}>Oral Presentation</option>
+              </select>
+            </label>
+
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;">
+              <button class="btn btn-secondary" type="submit" name="intent" value="draft">Save Draft</button>
+              <button class="btn" type="submit" name="intent" value="submit">Submit Abstract</button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(500).send(`Could not load abstract form: ${err.message}`);
+  }
+}
+
+async function postAbstractSubmit(req, res) {
   return sendView(res, "abstract-submit.html");
 }
 

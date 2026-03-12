@@ -25,11 +25,25 @@
           <section class="dashboard-hero hero-student">
             <span class="dashboard-kicker">Research Submission</span>
             <h1>Student Dashboard</h1>
-            <p>Prepare your abstract, save draft work, and track feedback and final status.</p>
+            <p>Prepare your abstract, save draft work, and track review status from one place.</p>
           </section>
 
           <section class="dashboard-grid">
-            <div class="tile tile-accent-student"><h2>Submit Abstract</h2><p>Start a new draft or update your abstract for submission.</p><div><a class="btn" href="/student/abstract/submit">Open</a></div></div>
+            <div class="tile tile-accent-student">
+              <h2>Start Submission</h2>
+              <p>Create a new abstract or continue a draft from your submission workspace.</p>
+              <div style="margin-top:10px;">
+                <a class="btn" href="/student/abstract/submit">Open Submission</a>
+              </div>
+            </div>
+
+            <div class="tile tile-accent-student">
+              <h2>Draft Saving</h2>
+              <p>Your work can be saved as a draft and finished later before final submission.</p>
+              <div style="margin-top:10px;">
+                <span class="badge badge-draft">Draft Enabled</span>
+              </div>
+            </div>
           </section>
 
           <form method="post" action="/logout" style="margin-top: 6px;">
