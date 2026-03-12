@@ -104,14 +104,24 @@ async function postLogin(req, res) {
     const ok = await verifyPassword(account, password);
     if (!ok) return res.status(401).send("Invalid credentials.");
 
-    req.session.user = {
-      id: String(account._id),
-      accountType: account.accountType,
-      email: account.email || null,
-      username: account.username || null,
+    await new Promise((resolve, reject) => {
+      req.session.regenerate((err) => {
+        if (err) return reject(err);
 
-      status: account.status || null
-    };
+        req.session.user = {
+          id: String(account._id),
+          accountType: account.accountType,
+          email: account.email || null,
+          username: account.username || null,
+          status: account.status || null
+        };
+
+        req.session.save((saveErr) => {
+          if (saveErr) return reject(saveErr);
+          resolve();
+        });
+      });
+    });
 
     return res.redirect("/dashboard");
   } catch (err) {
@@ -121,7 +131,11 @@ async function postLogin(req, res) {
 
 function postLogout(req, res) {
   if (!req.session) return res.redirect("/");
-  req.session.destroy(() => res.redirect("/"));
+
+  req.session.destroy(() => {
+    res.clearCookie("connect.sid");
+    return res.redirect("/");
+  });
 }
 
 async function postRegisterStudent(req, res) {
