@@ -25,11 +25,25 @@
           <section class="dashboard-hero hero-committee">
             <span class="dashboard-kicker">Committee Review</span>
             <h1>Committee Dashboard</h1>
-            <p>Coordinate volunteer applications, pending accounts, and final colloquium oversight.</p>
+            <p>Approve pending student and reviewer accounts, review volunteer applications, and manage colloquium workflow.</p>
           </section>
 
           <section class="dashboard-grid">
-            <div class="tile tile-accent-committee"><h2>Committee Info</h2><p>Update your profile and public committee-facing information.</p><div><a class="btn" href="/committee/info">My Info</a></div></div>
+            <div class="tile tile-accent-committee">
+              <h2>My Info</h2>
+              <p>Update your public-facing committee profile and contact details.</p>
+              <div><a class="btn" href="/committee/info">My Info</a></div>
+            </div>
+            <div class="tile tile-accent-committee">
+              <h2>Pending Accounts</h2>
+              <p>Approved committee members can review student and reviewer accounts directly from the dashboard.</p>
+              <div><span class="badge badge-pending">Committee Access</span></div>
+            </div>
+            <div class="tile tile-accent-committee">
+              <h2>Reviewer Applications</h2>
+              <p>Review volunteer applications and make approve or deny decisions for reviewers.</p>
+              <div><span class="badge">Workflow Active</span></div>
+            </div>
           </section>
 
           <form method="post" action="/logout" style="margin-top: 6px;">

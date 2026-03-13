@@ -30,6 +30,12 @@ async function findByIdentifier(identifier) {
   return findByUsername(id);
 }
 
+async function getAccountById(accountId) {
+  const id = String(accountId || "").trim();
+  if (!id) return null;
+  return Account.findById(id).lean();
+}
+
 async function getAllStatus(status) {
   const s = String(status || "").trim() || "Pending";
   return Account.find({ status: s }).lean();
@@ -145,14 +151,89 @@ async function getCommitteeMemberInfoList() {
 }
 
 
+
+async function createAccountByAdmin(data) {
+  if (!data || !data.accountType || !data.password) {
+    throw new Error("accountType and password are required");
+  }
+  const allowed = ["Student", "Reviewer", "Committee", "Admin"];
+  if (!allowed.includes(data.accountType)) {
+    throw new Error("Invalid account type");
+  }
+
+  const email = normalizeEmail(data.email);
+  if (!email && data.accountType !== "Admin") throw new Error("email is required");
+
+  if (email) {
+    const existing = await Account.findOne({ email }).select({ _id: 1 }).lean();
+    if (existing) throw new Error("An account with that email already exists");
+  }
+
+  const passwordHash = await bcrypt.hash(String(data.password), SALT_ROUNDS);
+
+  const payload = {
+    accountType: data.accountType,
+    password: passwordHash,
+    status: data.status || "Pending",
+    subjectArea: data.subjectArea
+  };
+
+  if (email) payload.email = email;
+  if (data.username) payload.username = String(data.username).trim();
+
+  const doc = await Account.create(payload);
+  return doc.toObject();
+}
+
+async function updateAccountByAdmin(accountId, data) {
+  const id = String(accountId || "").trim();
+  if (!id) throw new Error("accountId is required");
+
+  const existing = await Account.findById(id).lean();
+  if (!existing) throw new Error("Account not found");
+
+  const update = {};
+  if (data.accountType) {
+    const allowed = ["Student", "Reviewer", "Committee", "Admin"];
+    if (!allowed.includes(data.accountType)) throw new Error("Invalid account type");
+    update.accountType = data.accountType;
+  }
+  if (data.email !== undefined) {
+    const email = normalizeEmail(data.email);
+    if (email) {
+      const dupe = await Account.findOne({ email, _id: { $ne: id } }).select({ _id: 1 }).lean();
+      if (dupe) throw new Error("An account with that email already exists");
+      update.email = email;
+    } else {
+      update.email = undefined;
+    }
+  }
+  if (data.username !== undefined) update.username = String(data.username || "").trim() || undefined;
+  if (data.subjectArea !== undefined) update.subjectArea = String(data.subjectArea || "").trim() || undefined;
+  if (data.status !== undefined) {
+    const s = String(data.status || "").trim();
+    if (!["Approved", "Denied", "Pending"].includes(s)) throw new Error("Invalid status");
+    update.status = s;
+  }
+  if (data.password) {
+    update.password = await bcrypt.hash(String(data.password), SALT_ROUNDS);
+  }
+
+  return Account.findByIdAndUpdate(id, { $set: update }, { new: true }).select("-password").lean();
+}
+
+
 module.exports = {
   getUserByEmail,
+  getAccountById,
   findByUsername,
   findByEmail,
   findByIdentifier,
   getAllStatus,
   setAccountStatus,
   createAccount,
+  createAccountByAdmin,
+  updateAccountByAdmin,
   verifyPassword,
   ensureAdminExists,
   getAllNonAdminAccounts,
