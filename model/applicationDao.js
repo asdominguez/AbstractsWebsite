@@ -45,9 +45,14 @@ async function setApplicationStatus(appId, status) {
   return Application.findByIdAndUpdate(id, { status: s }, { new: true }).lean();
 }
 
+async function getApprovedReviewerApplications() {
+  return Application.find({ status: "Approved", roles: "Reviewer of Abstracts" }).lean();
+}
+
 module.exports = {
   createReviewerApplicationOnce,
   getApplicationByReviewerId,
   getApplicationsByStatus,
+  getApprovedReviewerApplications,
   setApplicationStatus
 };

@@ -26,6 +26,11 @@ const AbstractSchema = new mongoose.Schema(
 
     feedbackHistory: { type: [FeedbackSchema], default: [] },
 
+    assignmentStatus: { type: String, enum: ["Unassigned", "Assigned"], default: "Unassigned" },
+    assignedReviewerId: { type: mongoose.Schema.Types.ObjectId, ref: "Account", default: null, index: true },
+    assignedReviewerName: { type: String, trim: true, default: "" },
+    assignedAt: { type: Date, default: null },
+
     finalStatus: { type: String, required: true, enum: ["Pending", "Approved", "Denied"], default: "Pending" }
   },
   { timestamps: true }

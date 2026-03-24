@@ -24,8 +24,16 @@ const {
   postAdminDeleteAccount,
   requireReviewer,
   requireCommittee,
+  requireCommitteeOrAdmin,
   getReviewerApplication,
   postReviewerApplication,
+  getReviewerAssignedAbstractView,
+  getAbstractManagementPage,
+  getAbstractEditForm,
+  postAbstractEdit,
+  postAbstractDelete,
+  postCommitteeAssignAbstract,
+  postCommitteeUnassignAbstract,
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,
@@ -68,6 +76,7 @@ router.post("/admin/accounts/:id/delete", requireAdmin, postAdminDeleteAccount);
 
 router.get("/reviewer/application", requireReviewer, getReviewerApplication);
 router.post("/reviewer/application", requireReviewer, postReviewerApplication);
+router.get("/reviewer/abstract", requireReviewer, getReviewerAssignedAbstractView);
 
 router.get("/committee/info", requireCommittee, getCommitteeInfoForm);
 router.post("/committee/info", requireCommittee, postCommitteeInfoForm);
@@ -76,9 +85,21 @@ router.post("/committee/applications/:id/approve", requireCommittee, postCommitt
 router.post("/committee/applications/:id/deny", requireCommittee, postCommitteeDenyApplication);
 router.post("/committee/accounts/:id/approve", requireCommittee, postCommitteeApproveAccount);
 router.post("/committee/accounts/:id/deny", requireCommittee, postCommitteeDenyAccount);
+router.post("/committee/abstracts/:id/assign", requireCommittee, postCommitteeAssignAbstract);
+router.post("/committee/abstracts/:id/unassign", requireCommittee, postCommitteeUnassignAbstract);
 
 router.post("/admin/accounts/:id/approve", requireAdmin, postCommitteeApproveAccount);
 router.post("/admin/accounts/:id/deny", requireAdmin, postCommitteeDenyAccount);
+
+router.get("/committee/abstracts", requireCommitteeOrAdmin, getAbstractManagementPage);
+router.get("/committee/abstracts/:id/edit", requireCommitteeOrAdmin, getAbstractEditForm);
+router.post("/committee/abstracts/:id/edit", requireCommitteeOrAdmin, postAbstractEdit);
+router.post("/committee/abstracts/:id/delete", requireCommitteeOrAdmin, postAbstractDelete);
+
+router.get("/admin/abstracts", requireCommitteeOrAdmin, getAbstractManagementPage);
+router.get("/admin/abstracts/:id/edit", requireCommitteeOrAdmin, getAbstractEditForm);
+router.post("/admin/abstracts/:id/edit", requireCommitteeOrAdmin, postAbstractEdit);
+router.post("/admin/abstracts/:id/delete", requireCommitteeOrAdmin, postAbstractDelete);
 
 // Student abstract routes
 router.get("/student/abstract/submit", requireStudent, getAbstractSubmitForm);

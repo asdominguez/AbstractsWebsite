@@ -1,6 +1,6 @@
 const path = require("path");
-const { createAccount, findByIdentifier, verifyPassword, getAllNonAdminAccounts, deleteAccountByIdNonAdmin, getAllStatus, setAccountStatus, updateCommitteeInfo, getCommitteeMemberInfoList, getAccountById, createAccountByAdmin, updateAccountByAdmin } = require("../model/accountDao");
-const { createReviewerApplicationOnce, getApplicationByReviewerId, getApplicationsByStatus, setApplicationStatus } = require("../model/applicationDao");
+const { createAccount, findByIdentifier, verifyPassword, getAllNonAdminAccounts, deleteAccountByIdNonAdmin, getAllStatus, setAccountStatus, updateCommitteeInfo, getCommitteeMemberInfoList, getAccountById, createAccountByAdmin, updateAccountByAdmin, getAccountsByTypeAndStatus } = require("../model/accountDao");
+const { createReviewerApplicationOnce, getApplicationByReviewerId, getApplicationsByStatus, getApprovedReviewerApplications, setApplicationStatus } = require("../model/applicationDao");
 const abstractDao = require("../model/abstractDao");
 
 function sendView(res, filename) {
@@ -26,6 +26,32 @@ function getAccountStatusViewModel(status) {
   if (s === "Denied") return { status: "Denied", badge: "badge-denied", message: "Your account has been denied. Please contact an administrator if you believe this is a mistake." };
   return { status: "Pending", badge: "badge-pending", message: "Your account is waiting for approval." };
 }
+
+function getSubmissionPipelineViewModel(abs) {
+  if (!abs) return { label: "No Submission", badge: "badge", message: "You have not submitted an abstract yet." };
+  const submissionState = String(abs.submissionState || "").trim();
+  const assignmentStatus = String(abs.assignmentStatus || "Unassigned").trim();
+  const finalStatus = String(abs.finalStatus || "Pending").trim();
+
+  if (submissionState === "Draft") {
+    return { label: "Draft", badge: "badge-draft", message: "Your abstract is saved as a draft and has not entered review yet." };
+  }
+  if (finalStatus === "Approved") {
+    return { label: "Approved", badge: "badge-approved", message: "Your abstract has been approved." };
+  }
+  if (finalStatus === "Denied") {
+    return { label: "Denied", badge: "badge-denied", message: "Your abstract has been denied." };
+  }
+  if (assignmentStatus === "Assigned") {
+    return {
+      label: "Assigned to Reviewer",
+      badge: "badge-approved",
+      message: abs.assignedReviewerName ? `Your abstract is currently assigned to ${escapeHtml(abs.assignedReviewerName)} for review.` : "Your abstract is currently assigned to a reviewer."
+    };
+  }
+  return { label: "Awaiting Reviewer Assignment", badge: "badge-pending", message: "Your abstract has been submitted and is waiting to be assigned to a reviewer." };
+}
+
 
 function renderAccountStatusPage(res, accountType, status) {
   const vm = getAccountStatusViewModel(status);
@@ -103,6 +129,12 @@ function requireCommittee(req, res, next) {
   next();
 }
 
+function requireCommitteeOrAdmin(req, res, next) {
+  if (!req.session?.user) return res.redirect("/login");
+  if (!["Committee", "Admin"].includes(req.session.user.accountType)) return res.status(403).send("Forbidden");
+  next();
+}
+
 function requireAdmin(req, res, next) {
   if (!req.session?.user) return res.redirect("/login");
   if (req.session.user.accountType !== "Admin") return res.status(403).send("Forbidden");
@@ -121,11 +153,13 @@ function getDashboard(req, res) {
   if (!req.session?.user) return res.redirect("/login");
 
   const type = req.session.user.accountType;
-  const status = req.session.user.status || "Pending";
+  const status = req.session.user.status || "Approved";
 
   if (type === "Committee" && status !== "Approved") {
     return renderAccountStatusPage(res, "Committee", status);
   }
+
+  if (status === "Denied") return sendView(res, "dashboard.html");
 
   if (type === "Student") return getStudentDashboard(req, res);
   if (type === "Reviewer") return getReviewerDashboard(req, res);
@@ -385,8 +419,14 @@ async function getReviewerDashboard(req, res) {
     const reviewerId = req.session?.user?.id;
     if (!reviewerId) return res.redirect("/login");
 
-    const accountStatus = req.session?.user?.status || "Pending";
-    const application = await getApplicationByReviewerId(reviewerId);
+    const accountStatus = req.session?.user?.status || "Approved";
+    const assignedAbstractPromise = abstractDao.getAssignedAbstractByReviewerId
+      ? abstractDao.getAssignedAbstractByReviewerId(reviewerId)
+      : Promise.resolve(null);
+    const [application, assignedAbstract] = await Promise.all([
+      getApplicationByReviewerId(reviewerId),
+      assignedAbstractPromise
+    ]);
     const applicationStatus = application?.status || null;
 
     let primaryTile = `
@@ -456,7 +496,7 @@ async function getReviewerDashboard(req, res) {
 
           <section class="dashboard-grid">
             ${primaryTile}
-            <div class="tile tile-accent-reviewer"><h2>Assigned Work</h2><p>Your future assigned abstracts and review tasks will appear here.</p><div><span class="badge">Coming Soon</span></div></div>
+            <div class="tile tile-accent-reviewer"><h2>Assigned Work</h2><p>${assignedAbstract ? `You currently have one abstract assigned: <strong>${escapeHtml(assignedAbstract.title || "Untitled Abstract")}</strong>.` : "No abstract has been assigned to you yet."}</p><div>${assignedAbstract ? `<a class="btn" href="/reviewer/abstract">View Assigned Abstract</a>` : `<span class="badge badge-pending">Unassigned</span>`}</div></div>
             <div class="tile tile-accent-reviewer"><h2>Reviewer Notes</h2><p>Track feedback history and maintain consistent reviews over time.</p><div><span class="badge">Planned</span></div></div>
           </section>
 
@@ -483,10 +523,11 @@ async function getStudentDashboard(req, res) {
     const userId = req.session?.user?.id;
     if (!userId) return res.redirect("/login");
 
-    const accountStatus = req.session?.user?.status || "Pending";
+    const accountStatus = req.session?.user?.status || "Approved";
     const existing = await abstractDao.getAbstractByStudentId(userId);
     const submissionState = String(existing?.submissionState || "").trim();
     const finalStatus = String(existing?.finalStatus || "Pending").trim();
+    const pipelineStatus = getSubmissionPipelineViewModel(existing);
 
     const statusBadges = [];
     if (accountStatus !== "Approved") {
@@ -495,15 +536,18 @@ async function getStudentDashboard(req, res) {
     if (submissionState) {
       statusBadges.push(`<span class="badge ${submissionState === "Draft" ? "badge-draft" : "badge-submitted"}">${escapeHtml(submissionState)}</span>`);
     }
-    if (existing) {
-      statusBadges.push(`<span class="badge badge-${escapeHtml(finalStatus.toLowerCase())}">${escapeHtml(finalStatus)}</span>`);
+    if (existing && submissionState !== "Draft") {
+      statusBadges.push(`<span class="badge ${pipelineStatus.badge}">${escapeHtml(pipelineStatus.label)}</span>`);
+      if (finalStatus !== "Pending") {
+        statusBadges.push(`<span class="badge badge-${finalStatus.toLowerCase()}">${escapeHtml(finalStatus)}</span>`);
+      }
     }
 
     const canSubmit = accountStatus === "Approved";
     const primaryLabel = existing
       ? submissionState === "Draft"
         ? "Continue Draft"
-        : "Edit Submission"
+        : "Submit Abstract"
       : "Start Submission";
 
     const primaryAction = canSubmit
@@ -521,7 +565,7 @@ async function getStudentDashboard(req, res) {
           </div>`
         : `<div class="tile tile-accent-student">
             <h2>View My Abstract</h2>
-            <p>Open your submitted abstract to view its status, feedback history, and latest details.</p>
+            <p>${pipelineStatus.message} Open your submitted abstract to view its status, feedback history, and latest details.</p>
             <div style="margin-top:10px;">
               <a class="btn btn-secondary" href="/student/abstract">View My Abstract</a>
             </div>
@@ -598,7 +642,7 @@ async function getAbstractSubmitForm(req, res) {
   try {
     const userId = req.session?.user?.id;
     if (!userId) return res.redirect("/login");
-    const accountStatus = req.session?.user?.status || "Pending";
+    const accountStatus = req.session?.user?.status || "Approved";
     if (accountStatus !== "Approved") return res.redirect("/dashboard");
 
     const existing = await abstractDao.getAbstractByStudentId(userId);
@@ -683,14 +727,10 @@ async function getAbstractSubmitForm(req, res) {
 }
 
 async function postAbstractSubmit(req, res) {
-  return sendView(res, "abstract-submit.html");
-}
-
-async function postAbstractSubmit(req, res) {
   try {
     const userId = req.session?.user?.id;
     if (!userId) return res.redirect("/login");
-    const accountStatus = req.session?.user?.status || "Pending";
+    const accountStatus = req.session?.user?.status || "Approved";
     if (accountStatus !== "Approved") return res.redirect("/dashboard");
 
     const intent = String(req.body?.intent || "submit").trim().toLowerCase();
@@ -865,7 +905,7 @@ async function getReviewerApplication(req, res) {
   try {
     const reviewerId = req.session?.user?.id;
     if (!reviewerId) return res.redirect('/login');
-    const accountStatus = req.session?.user?.status || 'Pending';
+    const accountStatus = req.session?.user?.status || 'Approved';
     if (accountStatus !== 'Approved') return res.redirect('/dashboard');
 
     const application = await getApplicationByReviewerId(reviewerId);
@@ -932,7 +972,7 @@ async function getReviewerApplication(req, res) {
 async function postReviewerApplication(req, res) {
   try {
     const reviewerId = req.session.user.id;
-    const accountStatus = req.session?.user?.status || 'Pending';
+    const accountStatus = req.session?.user?.status || 'Approved';
     if (accountStatus !== 'Approved') return res.redirect('/dashboard');
     const existing = await getApplicationByReviewerId(reviewerId);
     if (existing) {
@@ -954,12 +994,293 @@ async function postReviewerApplication(req, res) {
   }
 }
 
+async function getReviewerAssignedAbstractView(req, res) {
+  try {
+    const reviewerId = req.session?.user?.id;
+    if (!reviewerId) return res.redirect("/login");
+
+    const abs = await abstractDao.getAssignedAbstractByReviewerId(reviewerId);
+    if (!abs) {
+      return res.status(200).send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assigned Abstract • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true"><span class="logo-mark">AP</span></div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/dashboard">Back</a>
+      </div>
+    </header>
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Assigned Abstract</h1>
+        <p class="muted">No abstract has been assigned to you.</p>
+      </section>
+    </main>
+  </body>
+</html>`);
+    }
+
+    const assignedAt = abs.assignedAt ? escapeHtml(new Date(abs.assignedAt).toLocaleString()) : "";
+    return res.status(200).send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assigned Abstract • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true"><span class="logo-mark">AP</span></div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/dashboard">Back</a>
+      </div>
+    </header>
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Assigned Abstract</h1>
+        <div class="kv">
+          <div><span class="muted">Student:</span> ${escapeHtml(abs.studentName || "")}</div>
+          <div><span class="muted">Field:</span> ${escapeHtml(abs.studentField || "")}</div>
+          <div><span class="muted">Type:</span> ${escapeHtml(abs.presentationType || "")}</div>
+          <div><span class="muted">Assigned:</span> ${assignedAt}</div>
+        </div>
+        <hr class="divider" />
+        <h2 style="margin: 0 0 8px 0;">${escapeHtml(abs.title || "")}</h2>
+        <p style="white-space: pre-wrap;">${escapeHtml(abs.description || "")}</p>
+      </section>
+    </main>
+  </body>
+</html>`);
+  } catch (err) {
+    return res.status(500).send(`Could not load assigned abstract: ${err.message}`);
+  }
+}
+
+function getAbstractManagementBasePath(req) {
+  return req.session?.user?.accountType === "Admin" ? "/admin/abstracts" : "/committee/abstracts";
+}
+
+function getAbstractManagementRoleLabel(req) {
+  return req.session?.user?.accountType === "Admin" ? "Admin" : "Committee";
+}
+
+async function getAbstractManagementPage(req, res) {
+  try {
+    const abstracts = abstractDao.getAllAbstracts ? await abstractDao.getAllAbstracts() : [];
+    const basePath = getAbstractManagementBasePath(req);
+    const roleLabel = getAbstractManagementRoleLabel(req);
+
+    const rows = abstracts
+      .map((abs) => {
+        const id = escapeHtml(abs._id);
+        const assignment = String(abs.assignmentStatus || "Unassigned") === "Assigned"
+          ? `<span class="badge badge-approved">Assigned</span><div class="muted" style="margin-top:6px;">${escapeHtml(abs.assignedReviewerName || "")}</div>`
+          : `<span class="badge badge-pending">Unassigned</span>`;
+
+        return `
+          <tr>
+            <td>${escapeHtml(abs.studentName || "")}</td>
+            <td>${escapeHtml(abs.studentField || "")}</td>
+            <td>${escapeHtml(abs.title || "")}</td>
+            <td>${escapeHtml(abs.presentationType || "")}</td>
+            <td>${escapeHtml(abs.submissionState || "")}</td>
+            <td>${escapeHtml(abs.finalStatus || "")}</td>
+            <td>${assignment}</td>
+            <td>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <a class="btn btn-secondary" href="${basePath}/${id}/edit">Edit</a>
+                <form method="post" action="${basePath}/${id}/delete" style="margin:0;" onsubmit="return confirm('Delete this abstract? This cannot be undone.');">
+                  <button class="btn btn-danger" type="submit">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Abstracts • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true"><span class="logo-mark">AP</span></div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/dashboard">Back to Dashboard</a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Manage Abstracts</h1>
+        <p class="muted" style="margin-top:0;">${roleLabel} users can manually update or delete any abstract in the system.</p>
+        <div class="table-wrap">
+          <table class="table" aria-label="all abstracts table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Subject Area</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Submission State</th>
+                <th>Final Status</th>
+                <th>Assignment</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="8" class="muted">No abstracts found.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(500).send(`Could not load abstracts: ${err.message}`);
+  }
+}
+
+async function getAbstractEditForm(req, res) {
+  try {
+    const abs = await abstractDao.getAbstractById(req.params.id);
+    if (!abs) return res.status(404).send("Abstract not found");
+
+    const basePath = getAbstractManagementBasePath(req);
+    const assignmentDetails = String(abs.assignmentStatus || "Unassigned") === "Assigned"
+      ? `Assigned to ${escapeHtml(abs.assignedReviewerName || "Reviewer")}`
+      : "Unassigned";
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Edit Abstract • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="${basePath}" aria-label="abstracts">
+        <div class="logo" aria-hidden="true"><span class="logo-mark">AP</span></div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="${basePath}">Back to Abstracts</a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Edit Abstract</h1>
+        <p class="muted" style="margin-top:0;">Student: ${escapeHtml(abs.studentName || "")}${abs.studentField ? ` • ${escapeHtml(abs.studentField)}` : ""}</p>
+        <div style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          <span class="badge ${String(abs.assignmentStatus || "Unassigned") === "Assigned" ? "badge-approved" : "badge-pending"}">${escapeHtml(abs.assignmentStatus || "Unassigned")}</span>
+          <span class="muted">${assignmentDetails}</span>
+        </div>
+        <form class="form" method="post" action="${basePath}/${escapeHtml(abs._id)}/edit">
+          <label class="label"><span>Title</span><input class="input" type="text" name="title" value="${escapeHtml(abs.title || "")}" /></label>
+          <label class="label"><span>Description</span><textarea class="input" name="description" rows="10">${escapeHtml(abs.description || "")}</textarea></label>
+          <label class="label"><span>Presentation Type</span>
+            <select class="input" name="presentationType" required>
+              <option value="Poster" ${abs.presentationType === "Poster" ? "selected" : ""}>Poster</option>
+              <option value="Oral" ${abs.presentationType === "Oral" ? "selected" : ""}>Oral</option>
+            </select>
+          </label>
+          <label class="label"><span>Submission State</span>
+            <select class="input" name="submissionState" required>
+              <option value="Draft" ${abs.submissionState === "Draft" ? "selected" : ""}>Draft</option>
+              <option value="Submitted" ${abs.submissionState === "Submitted" ? "selected" : ""}>Submitted</option>
+            </select>
+          </label>
+          <label class="label"><span>Final Status</span>
+            <select class="input" name="finalStatus" required>
+              <option value="Pending" ${abs.finalStatus === "Pending" ? "selected" : ""}>Pending</option>
+              <option value="Approved" ${abs.finalStatus === "Approved" ? "selected" : ""}>Approved</option>
+              <option value="Denied" ${abs.finalStatus === "Denied" ? "selected" : ""}>Denied</option>
+            </select>
+          </label>
+          <p class="muted" style="margin-top:0;">Changing an abstract to Draft will automatically clear any current reviewer assignment.</p>
+          <div style="display:flex; gap:12px; flex-wrap:wrap;">
+            <button class="btn" type="submit">Save Changes</button>
+            <a class="btn btn-secondary" href="${basePath}">Cancel</a>
+          </div>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(400).send(`Could not load abstract: ${err.message}`);
+  }
+}
+
+async function postAbstractEdit(req, res) {
+  try {
+    await abstractDao.updateAbstractById(req.params.id, {
+      title: req.body?.title,
+      description: req.body?.description,
+      presentationType: req.body?.presentationType,
+      submissionState: req.body?.submissionState,
+      finalStatus: req.body?.finalStatus
+    });
+    return res.redirect(getAbstractManagementBasePath(req));
+  } catch (err) {
+    return res.status(400).send(`Could not update abstract: ${err.message}`);
+  }
+}
+
+async function postAbstractDelete(req, res) {
+  try {
+    await abstractDao.deleteAbstractById(req.params.id);
+    return res.redirect(getAbstractManagementBasePath(req));
+  } catch (err) {
+    return res.status(400).send(`Could not delete abstract: ${err.message}`);
+  }
+}
+
 async function getCommitteeDashboard(req, res) {
   try {
-    const pendingApplications = await getApplicationsByStatus("Pending");
-    const pendingAccounts = (await getAllStatus("Pending")).filter(
-      (a) => a.accountType === "Student" || a.accountType === "Reviewer"
-    );
+    const [pendingApplications, allPendingAccounts, submittedAbstracts, approvedReviewerAccounts, approvedReviewerApplications] = await Promise.all([
+      getApplicationsByStatus("Pending"),
+      getAllStatus("Pending"),
+      abstractDao.getSubmittedAbstracts ? abstractDao.getSubmittedAbstracts() : Promise.resolve([]),
+      getAccountsByTypeAndStatus ? getAccountsByTypeAndStatus("Reviewer", "Approved") : Promise.resolve([]),
+      getApprovedReviewerApplications ? getApprovedReviewerApplications() : Promise.resolve([])
+    ]);
+    const pendingAccounts = allPendingAccounts.filter((a) => a.accountType === "Student" || a.accountType === "Reviewer");
+
+    const eligibleReviewerIds = new Set(approvedReviewerApplications.map((a) => String(a.reviewerId)));
+    const eligibleReviewers = approvedReviewerAccounts.filter((a) => eligibleReviewerIds.has(String(a._id)));
+    const reviewerOptions = eligibleReviewers
+      .map((r) => `<option value="${escapeHtml(r._id)}">${escapeHtml(r.username || r.email || "Reviewer")} (${escapeHtml(r.subjectArea || "No subject area")})</option>`)
+      .join("");
 
     const applicationRows = pendingApplications
       .map((a) => {
@@ -1011,6 +1332,38 @@ async function getCommitteeDashboard(req, res) {
       })
       .join("");
 
+    const abstractRows = submittedAbstracts
+      .map((abs) => {
+        const abstractId = escapeHtml(abs._id);
+        const assigned = String(abs.assignmentStatus || "Unassigned") === "Assigned";
+        return `
+          <tr>
+            <td>${escapeHtml(abs.studentName || "")}</td>
+            <td>${escapeHtml(abs.studentField || "")}</td>
+            <td>${escapeHtml(abs.title || "")}</td>
+            <td>${escapeHtml(abs.presentationType || "")}</td>
+            <td>${assigned ? `<span class="badge badge-approved">Assigned</span><div class="muted" style="margin-top:6px;">${escapeHtml(abs.assignedReviewerName || "")}</div>` : `<span class="badge badge-pending">Unassigned</span>`}</td>
+            <td>
+              ${assigned
+                ? `<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <form method="post" action="/committee/abstracts/${abstractId}/unassign" style="margin:0;">
+                      <button class="btn btn-danger" type="submit">Unassign</button>
+                    </form>
+                    <span class="muted">Unassign before reassigning.</span>
+                  </div>`
+                : `<form method="post" action="/committee/abstracts/${abstractId}/assign" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:0;">
+                    <select class="input" name="reviewerId" style="min-width:240px;">
+                      <option value="">Select reviewer</option>
+                      ${reviewerOptions}
+                    </select>
+                    <button class="btn" type="submit">Assign</button>
+                  </form>`}
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -1039,8 +1392,10 @@ async function getCommitteeDashboard(req, res) {
             <span class="dashboard-kicker">Committee Review</span>
             <h1>Committee Dashboard</h1>
             <p>Coordinate reviewer applications, approve pending student and reviewer accounts, and manage colloquium workflow.</p>
-            <div style="margin-top:14px;">
+            <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
               <a class="btn" href="/committee/info">My Info</a>
+              <a class="btn btn-secondary" href="/committee/abstracts">Manage Abstracts</a>
+              <span class="badge badge-approved">${eligibleReviewers.length} Eligible Reviewers</span>
             </div>
           </section>
 
@@ -1055,7 +1410,32 @@ async function getCommitteeDashboard(req, res) {
               <p>Approve or deny student and reviewer accounts that are waiting for access.</p>
               <div><span class="badge badge-pending">${pendingAccounts.length} Pending</span></div>
             </div>
+            <div class="tile tile-accent-committee">
+              <h2>Abstract Assignment Queue</h2>
+              <p>Assign each submitted abstract to exactly one eligible reviewer. Reviewers can only hold one abstract at a time.</p>
+              <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;"><span class="badge badge-pending">${submittedAbstracts.length} Submitted</span><a class="btn btn-secondary" href="/committee/abstracts">Manage All Abstracts</a></div>
+            </div>
           </section>
+
+          <h2 class="section-title">Abstract Assignment Queue</h2>
+          <p class="muted" style="margin-top:0;">Only reviewers with approved reviewer applications for abstract review appear in the assignment list.</p>
+          <div class="table-wrap">
+            <table class="table" aria-label="abstract assignment queue">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Subject Area</th>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th>Assignment</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${abstractRows || `<tr><td colspan="6" class="muted">No submitted abstracts available.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
 
           <h2 class="section-title">Review Applications</h2>
           <p class="muted" style="margin-top:0;">Pending reviewer volunteer applications are listed here.</p>
@@ -1106,6 +1486,26 @@ async function getCommitteeDashboard(req, res) {
     return res.status(200).send(html);
   } catch (err) {
     return res.status(500).send(`Could not load dashboard: ${err.message}`);
+  }
+}
+
+async function postCommitteeAssignAbstract(req, res) {
+  try {
+    const reviewerId = String(req.body?.reviewerId || "").trim();
+    if (!reviewerId) return res.status(400).send("Could not assign abstract: reviewerId is required");
+    await abstractDao.assignAbstractToReviewer(req.params.id, reviewerId);
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not assign abstract: ${err.message}`);
+  }
+}
+
+async function postCommitteeUnassignAbstract(req, res) {
+  try {
+    await abstractDao.unassignAbstract(req.params.id);
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not unassign abstract: ${err.message}`);
   }
 }
 
@@ -1436,9 +1836,17 @@ module.exports = {
   postAdminDeleteAccount,
   requireReviewer,
   requireCommittee,
+  requireCommitteeOrAdmin,
   getReviewerApplication,
   postReviewerApplication,
+  getReviewerAssignedAbstractView,
+  getAbstractManagementPage,
+  getAbstractEditForm,
+  postAbstractEdit,
+  postAbstractDelete,
   getCommitteeDashboard,
+  postCommitteeAssignAbstract,
+  postCommitteeUnassignAbstract,
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,
