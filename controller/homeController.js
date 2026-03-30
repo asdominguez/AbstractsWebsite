@@ -1275,6 +1275,7 @@ async function getCommitteeDashboard(req, res) {
       getApprovedReviewerApplications ? getApprovedReviewerApplications() : Promise.resolve([])
     ]);
     const pendingAccounts = allPendingAccounts.filter((a) => a.accountType === "Student" || a.accountType === "Reviewer");
+    const pendingAbstracts = submittedAbstracts.filter((a) => a.finalStatus === "Pending");
 
     const eligibleReviewerIds = new Set(approvedReviewerApplications.map((a) => String(a.reviewerId)));
     const eligibleReviewers = approvedReviewerAccounts.filter((a) => eligibleReviewerIds.has(String(a._id)));
@@ -1332,7 +1333,7 @@ async function getCommitteeDashboard(req, res) {
       })
       .join("");
 
-    const abstractRows = submittedAbstracts
+    const abstractRows = pendingAbstracts
       .map((abs) => {
         const abstractId = escapeHtml(abs._id);
         const assigned = String(abs.assignmentStatus || "Unassigned") === "Assigned";
@@ -1350,6 +1351,9 @@ async function getCommitteeDashboard(req, res) {
                       <button class="btn btn-danger" type="submit">Unassign</button>
                     </form>
                     <span class="muted">Unassign before reassigning.</span>
+                    <form method="post" action="/committee/abstracts/${abstractId}/approvefinal" style="margin:0;">
+                      <button class="btn" type="submit">Approve</button>
+                    </form>
                   </div>`
                 : `<form method="post" action="/committee/abstracts/${abstractId}/assign" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:0;">
                     <select class="input" name="reviewerId" style="min-width:240px;">
@@ -1506,6 +1510,15 @@ async function postCommitteeUnassignAbstract(req, res) {
     return res.redirect("/dashboard");
   } catch (err) {
     return res.status(400).send(`Could not unassign abstract: ${err.message}`);
+  }
+}
+
+async function postCommitteeApproveAbstract(req, res) {
+  try {
+    await abstractDao.setFinalApproval(req.params.id, "Approved")
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not approve abstract: ${err.message}`);
   }
 }
 
@@ -1847,6 +1860,7 @@ module.exports = {
   getCommitteeDashboard,
   postCommitteeAssignAbstract,
   postCommitteeUnassignAbstract,
+  postCommitteeApproveAbstract,
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,

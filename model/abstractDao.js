@@ -229,6 +229,15 @@ async function unassignAbstract(abstractId) {
   ).lean();
 }
 
+async function setFinalApproval(abstractId, status) {
+  const id = String(abstractId || "").trim();
+  if (!id) throw new Error("abstractId is required");
+  const s = String(status || "").trim();
+  if (!["Approved", "Denied", "Pending"].includes(s)) throw new Error("Invalid status");
+
+  return Abstract.findByIdAndUpdate(id, { finalStatus: s }, { new: true }).lean();
+}
+
 module.exports = {
   saveStudentAbstractDraft,
   upsertStudentAbstractDraft: saveStudentAbstractDraft,
@@ -244,5 +253,6 @@ module.exports = {
   assignAbstractToReviewer,
   updateAbstractById,
   deleteAbstractById,
-  unassignAbstract
+  unassignAbstract,
+  setFinalApproval
 };

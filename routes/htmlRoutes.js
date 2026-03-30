@@ -34,6 +34,7 @@ const {
   postAbstractDelete,
   postCommitteeAssignAbstract,
   postCommitteeUnassignAbstract,
+  postCommitteeApproveAbstract,
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,
@@ -43,7 +44,7 @@ const {
   getCommitteeMembersPage,
   getAbstractSubmitForm,
   postAbstractSubmit,
-  getStudentAbstractView
+  getStudentAbstractView,
 } = require("../controller/homeController");
 
 router.get("/", getIndex);
@@ -87,6 +88,7 @@ router.post("/committee/accounts/:id/approve", requireCommittee, postCommitteeAp
 router.post("/committee/accounts/:id/deny", requireCommittee, postCommitteeDenyAccount);
 router.post("/committee/abstracts/:id/assign", requireCommittee, postCommitteeAssignAbstract);
 router.post("/committee/abstracts/:id/unassign", requireCommittee, postCommitteeUnassignAbstract);
+router.post("/committee/abstracts/:id/approvefinal", requireCommittee, postCommitteeApproveAbstract);
 
 router.post("/admin/accounts/:id/approve", requireAdmin, postCommitteeApproveAccount);
 router.post("/admin/accounts/:id/deny", requireAdmin, postCommitteeDenyAccount);
