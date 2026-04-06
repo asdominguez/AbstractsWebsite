@@ -27,6 +27,11 @@ function getAccountStatusViewModel(status) {
   return { status: "Pending", badge: "badge-pending", message: "Your account is waiting for approval." };
 }
 
+function isAbstractComplete(abs) {
+  const finalStatus = String(abs?.finalStatus || "Pending").trim();
+  return Boolean(abs?.isComplete) || ["Approved", "Denied"].includes(finalStatus);
+}
+
 function getSubmissionPipelineViewModel(abs) {
   if (!abs) return { label: "No Submission", badge: "badge", message: "You have not submitted an abstract yet." };
   const submissionState = String(abs.submissionState || "").trim();
@@ -37,10 +42,10 @@ function getSubmissionPipelineViewModel(abs) {
     return { label: "Draft", badge: "badge-draft", message: "Your abstract is saved as a draft and has not entered review yet." };
   }
   if (finalStatus === "Approved") {
-    return { label: "Approved", badge: "badge-approved", message: "Your abstract has been approved." };
+    return { label: "Approved", badge: "badge-approved", message: "Your abstract has been approved and is now complete." };
   }
   if (finalStatus === "Denied") {
-    return { label: "Denied", badge: "badge-denied", message: "Your abstract has been denied." };
+    return { label: "Denied", badge: "badge-denied", message: "Your abstract has been denied and is now complete." };
   }
   if (assignmentStatus === "Assigned") {
     return {
@@ -73,7 +78,7 @@ function renderAccountStatusPage(res, accountType, status) {
       </a>
       <div class="topbar-actions">
         <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
-      </div>
+              </div>
     </header>
 
     <main class="page">
@@ -94,6 +99,10 @@ function renderAccountStatusPage(res, accountType, status) {
               <p>${vm.status === "Pending" ? "Your account can log in, but approval-only actions are temporarily unavailable until an administrator reviews your request." : "Your account cannot access approval-only actions in its current state."}</p>
             </div>
           </section>
+
+          <div style="margin-top:14px;">
+            <a class="btn btn-secondary" href="/gallery">Approved Gallery</a>
+          </div>
 
           <form method="post" action="/logout" style="margin-top: 6px;">
             <button class="btn btn-secondary" type="submit">Logout</button>
@@ -373,7 +382,7 @@ async function getAdminManageAccounts(req, res) {
       </a>
       <div class="topbar-actions">
         <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
-      </div>
+              </div>
     </header>
 
     <main class="page">
@@ -482,7 +491,7 @@ async function getReviewerDashboard(req, res) {
       </a>
       <div class="topbar-actions">
         <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
-      </div>
+              </div>
     </header>
 
     <main class="page">
@@ -497,8 +506,13 @@ async function getReviewerDashboard(req, res) {
           <section class="dashboard-grid">
             ${primaryTile}
             <div class="tile tile-accent-reviewer"><h2>Assigned Work</h2><p>${assignedAbstract ? `You currently have one abstract assigned: <strong>${escapeHtml(assignedAbstract.title || "Untitled Abstract")}</strong>.` : "No abstract has been assigned to you yet."}</p><div>${assignedAbstract ? `<a class="btn" href="/reviewer/abstract">View Assigned Abstract</a>` : `<span class="badge badge-pending">Unassigned</span>`}</div></div>
-            <div class="tile tile-accent-reviewer"><h2>Reviewer Notes</h2><p>Track feedback history and maintain consistent reviews over time.</p><div><span class="badge">Planned</span></div></div>
+            <div class="tile tile-accent-reviewer"><h2>Feedback Workflow</h2><p>${assignedAbstract && isAbstractComplete(assignedAbstract) ? "A final committee-approved decision has been released. This review is complete." : assignedAbstract && Array.isArray(assignedAbstract.pendingFeedback) && assignedAbstract.pendingFeedback.length > 0 ? "Your latest feedback is waiting for committee approval before it is released to the student." : assignedAbstract?.feedbackDraft ? "You have a saved feedback draft for this abstract." : "Submit feedback with a recommendation of Approved, Work In Progress, or Denied."}</p><div>${assignedAbstract && isAbstractComplete(assignedAbstract) ? `<span class="badge badge-${escapeHtml(String(assignedAbstract.finalStatus || "pending").toLowerCase())}">Complete</span>` : assignedAbstract && Array.isArray(assignedAbstract.pendingFeedback) && assignedAbstract.pendingFeedback.length > 0 ? `<span class="badge badge-pending">Pending Committee Review</span>` : assignedAbstract?.feedbackDraft ? `<span class="badge badge-draft">Draft Saved</span>` : `<span class="badge">Ready</span>`}</div></div>
+            <div class="tile tile-accent-reviewer"><h2>Approved Abstract Gallery</h2><p>Browse every fully approved abstract and open each title to view the author and full description.</p><div><a class="btn btn-secondary" href="/gallery">Open Gallery</a></div></div>
           </section>
+
+          <div style="margin-top:14px;">
+            <a class="btn btn-secondary" href="/gallery">Approved Gallery</a>
+          </div>
 
           <form method="post" action="/logout" style="margin-top: 6px;">
             <button class="btn btn-secondary" type="submit">Logout</button>
@@ -543,16 +557,21 @@ async function getStudentDashboard(req, res) {
       }
     }
 
-    const canSubmit = accountStatus === "Approved";
+    const abstractComplete = isAbstractComplete(existing);
+    const canSubmit = accountStatus === "Approved" && !abstractComplete;
     const primaryLabel = existing
       ? submissionState === "Draft"
         ? "Continue Draft"
-        : "Submit Abstract"
+        : abstractComplete
+          ? "View Final Status"
+          : "Submit Abstract"
       : "Start Submission";
 
-    const primaryAction = canSubmit
-      ? `<a class="btn" href="/student/abstract/submit">${primaryLabel}</a>`
-      : `<span class="badge badge-${accountStatus.toLowerCase()}">${escapeHtml(accountStatus)}</span>`;
+    const primaryAction = abstractComplete
+      ? `<a class="btn" href="/student/abstract">View Final Status</a>`
+      : canSubmit
+        ? `<a class="btn" href="/student/abstract/submit">${primaryLabel}</a>`
+        : `<span class="badge badge-${accountStatus.toLowerCase()}">${escapeHtml(accountStatus)}</span>`;
 
     const secondaryTile = existing
       ? submissionState === "Draft"
@@ -563,13 +582,21 @@ async function getStudentDashboard(req, res) {
               ${canSubmit ? `<a class="btn btn-secondary" href="/student/abstract/submit">Continue Draft</a>` : `<span class="badge badge-${accountStatus.toLowerCase()}">${escapeHtml(accountStatus)}</span>`}
             </div>
           </div>`
-        : `<div class="tile tile-accent-student">
-            <h2>View My Abstract</h2>
-            <p>${pipelineStatus.message} Open your submitted abstract to view its status, feedback history, and latest details.</p>
-            <div style="margin-top:10px;">
-              <a class="btn btn-secondary" href="/student/abstract">View My Abstract</a>
-            </div>
-          </div>`
+        : abstractComplete
+          ? `<div class="tile tile-accent-student">
+              <h2>Final Decision</h2>
+              <p>${pipelineStatus.message} The abstract is complete and can no longer be changed by the student.</p>
+              <div style="margin-top:10px;">
+                <a class="btn btn-secondary" href="/student/abstract">View Final Decision</a>
+              </div>
+            </div>`
+          : `<div class="tile tile-accent-student">
+              <h2>View My Abstract</h2>
+              <p>${pipelineStatus.message} Open your submitted abstract to view its status, feedback history, and latest details.</p>
+              <div style="margin-top:10px;">
+                <a class="btn btn-secondary" href="/student/abstract">View My Abstract</a>
+              </div>
+            </div>`
       : `<div class="tile tile-accent-student">
           <h2>Submission Access</h2>
           <p>${canSubmit ? "You can begin a new abstract now and save drafts as you work." : "Your student account must be approved before you can create or submit an abstract."}</p>
@@ -596,6 +623,7 @@ async function getStudentDashboard(req, res) {
       </a>
       <div class="topbar-actions">
         <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+        <a class="btn btn-secondary" href="/gallery">Approved Gallery</a>
       </div>
     </header>
 
@@ -614,13 +642,20 @@ async function getStudentDashboard(req, res) {
           <section class="dashboard-grid">
             <div class="tile tile-accent-student">
               <h2>${primaryLabel}</h2>
-              <p>${canSubmit ? "Create a new abstract, revise your saved draft, or update your latest submission." : "Approval is required before abstract submission becomes available."}</p>
+              <p>${abstractComplete ? "Your final committee-approved decision is available here. Student editing is now closed." : canSubmit ? "Create a new abstract, revise your saved draft, or update your latest submission." : "Approval is required before abstract submission becomes available."}</p>
               <div style="margin-top:10px;">
                 ${primaryAction}
               </div>
             </div>
 
             ${secondaryTile}
+            <div class="tile tile-accent-student">
+              <h2>Approved Abstract Gallery</h2>
+              <p>Browse every abstract that reached a final approved decision and open each title to view its author and description.</p>
+              <div style="margin-top:10px;">
+                <a class="btn btn-secondary" href="/gallery">Open Gallery</a>
+              </div>
+            </div>
           </section>
 
           <form method="post" action="/logout" style="margin-top: 6px;">
@@ -646,6 +681,36 @@ async function getAbstractSubmitForm(req, res) {
     if (accountStatus !== "Approved") return res.redirect("/dashboard");
 
     const existing = await abstractDao.getAbstractByStudentId(userId);
+    if (isAbstractComplete(existing)) {
+      return res.status(200).send(`<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Submit Abstract • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true"><span class="logo-mark">AP</span></div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/student/abstract">View My Abstract</a>
+        <a class="btn btn-secondary" href="/dashboard">Back</a>
+      </div>
+    </header>
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Abstract Locked</h1>
+        <p class="muted">This abstract has a final status and is complete. Students can no longer change it.</p>
+        <div style="margin-top:14px;"><a class="btn" href="/student/abstract">View Final Status</a></div>
+      </section>
+    </main>
+  </body>
+</html>`);
+    }
 
     const title = escapeHtml(existing?.title || "");
     const description = escapeHtml(existing?.description || "");
@@ -733,6 +798,9 @@ async function postAbstractSubmit(req, res) {
     const accountStatus = req.session?.user?.status || "Approved";
     if (accountStatus !== "Approved") return res.redirect("/dashboard");
 
+    const existing = await abstractDao.getAbstractByStudentId(userId);
+    if (isAbstractComplete(existing)) return res.status(400).send("Could not submit abstract: this abstract is complete and can no longer be changed by the student");
+
     const intent = String(req.body?.intent || "submit").trim().toLowerCase();
     const title = String(req.body?.title || "").trim();
     const description = String(req.body?.description || "").trim();
@@ -817,6 +885,8 @@ async function getStudentAbstractView(req, res) {
     const description = escapeHtml(abs.description || "");
     const presentationType = escapeHtml(abs.presentationType || "");
     const finalStatus = escapeHtml(abs.finalStatus || "Pending");
+    const abstractComplete = isAbstractComplete(abs);
+    const completedAt = abs.completedAt ? escapeHtml(new Date(abs.completedAt).toLocaleString()) : "";
     const lastUpdated = abs.lastUpdated ? escapeHtml(new Date(abs.lastUpdated).toLocaleString()) : "";
     const feedbackRows = (abs.feedbackHistory || [])
       .map((f) => {
@@ -858,8 +928,9 @@ async function getStudentAbstractView(req, res) {
 
         <div class="kv">
           <div><span class="muted">Type:</span> ${presentationType}</div>
-          <div><span class="muted">Status:</span> <strong>${finalStatus}</strong></div>
+          <div><span class="muted">Final Status:</span> <strong>${finalStatus}</strong></div>
           <div><span class="muted">Last Updated:</span> ${lastUpdated}</div>
+          ${completedAt ? `<div><span class="muted">Completed:</span> ${completedAt}</div>` : ""}
         </div>
 
         <hr class="divider" />
@@ -867,8 +938,8 @@ async function getStudentAbstractView(req, res) {
         <h2 style="margin: 0 0 8px 0;">${title}</h2>
         <p style="white-space: pre-wrap;">${description}</p>
 
-        <div style="margin-top:14px;">
-          <a class="btn" href="/student/abstract/submit">Edit / Resubmit</a>
+        <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+          ${abstractComplete ? `<span class="badge badge-${finalStatus.toLowerCase()}">Complete</span><span class="muted">This abstract can no longer be changed by the student.</span>` : `<a class="btn" href="/student/abstract/submit">Edit / Resubmit</a>`}
         </div>
 
         <hr class="divider" />
@@ -1030,6 +1101,47 @@ async function getReviewerAssignedAbstractView(req, res) {
     }
 
     const assignedAt = abs.assignedAt ? escapeHtml(new Date(abs.assignedAt).toLocaleString()) : "";
+    const pendingFeedback = Array.isArray(abs.pendingFeedback) ? abs.pendingFeedback : [];
+    const feedbackDraft = abs.feedbackDraft || null;
+    const abstractComplete = isAbstractComplete(abs);
+    const draftComment = escapeHtml(feedbackDraft?.comment || "");
+    const draftUpdated = feedbackDraft?.lastUpdated ? escapeHtml(new Date(feedbackDraft.lastUpdated).toLocaleString()) : "";
+    const completionBanner = abstractComplete
+      ? `<div style="margin:12px 0 0 0;"><span class="badge badge-${escapeHtml(String(abs.finalStatus || "pending").toLowerCase())}">Final Status: ${escapeHtml(abs.finalStatus || "Pending")}</span></div>`
+      : pendingFeedback.length > 0
+        ? `<div style="margin:12px 0 0 0;"><span class="badge badge-pending">Feedback Pending Committee Approval</span></div>`
+        : feedbackDraft
+          ? `<div style="margin:12px 0 0 0; display:flex; gap:8px; flex-wrap:wrap; align-items:center;"><span class="badge badge-draft">Draft Saved</span>${draftUpdated ? `<span class="muted">Updated ${draftUpdated}</span>` : ""}</div>`
+          : "";
+    const releaseRows = (Array.isArray(abs.feedbackHistory) ? abs.feedbackHistory : [])
+      .map((item) => `
+          <tr>
+            <td>${escapeHtml(item.date ? new Date(item.date).toLocaleString() : "")}</td>
+            <td>${escapeHtml(item.decision || "")}</td>
+            <td>${escapeHtml(item.comment || "")}</td>
+          </tr>`)
+      .join("");
+
+    const feedbackForm = abstractComplete
+      ? `<p class="muted">This abstract now has a final released status of <strong>${escapeHtml(abs.finalStatus || "Pending")}</strong>. No additional reviewer edits are allowed.</p>`
+      : pendingFeedback.length > 0
+        ? `<p class="muted">You already have feedback awaiting committee review for this abstract.</p>`
+        : `<form class="form" method="post" action="/reviewer/abstract/${escapeHtml(abs._id)}/feedback">
+          <label class="label"><span>Project State</span>
+            <select class="input" name="decision" required>
+              <option value="" ${!feedbackDraft?.decision ? "selected" : ""}>Select a state</option>
+              <option value="Approved" ${feedbackDraft?.decision === "Approved" ? "selected" : ""}>Approved</option>
+              <option value="Work In Progress" ${feedbackDraft?.decision === "Work In Progress" ? "selected" : ""}>Work In Progress</option>
+              <option value="Denied" ${feedbackDraft?.decision === "Denied" ? "selected" : ""}>Denied</option>
+            </select>
+          </label>
+          <label class="label"><span>Feedback</span><textarea class="input" name="comment" rows="8" required>${draftComment}</textarea></label>
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;">
+            <button class="btn btn-secondary" type="submit" name="intent" value="draft">Save Draft</button>
+            <button class="btn" type="submit" name="intent" value="submit">Submit Feedback</button>
+          </div>
+        </form>`;
+
     return res.status(200).send(`<!doctype html>
 <html lang="en">
   <head>
@@ -1057,15 +1169,61 @@ async function getReviewerAssignedAbstractView(req, res) {
           <div><span class="muted">Type:</span> ${escapeHtml(abs.presentationType || "")}</div>
           <div><span class="muted">Assigned:</span> ${assignedAt}</div>
         </div>
+        ${completionBanner}
         <hr class="divider" />
         <h2 style="margin: 0 0 8px 0;">${escapeHtml(abs.title || "")}</h2>
         <p style="white-space: pre-wrap;">${escapeHtml(abs.description || "")}</p>
+
+        <hr class="divider" />
+        <h2 style="margin: 0 0 8px 0;">Review Feedback</h2>
+        <p class="muted" style="margin-top:0;">Your feedback is sent to committee members first. They must approve it before the student can view it.</p>
+        ${feedbackForm}
+
+        <hr class="divider" />
+        <h2 style="margin: 0 0 8px 0;">Released Feedback History</h2>
+        <div class="table-wrap">
+          <table class="table" aria-label="released feedback history">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Decision</th>
+                <th>Feedback</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${releaseRows || `<tr><td colspan="3" class="muted">No released feedback yet.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
   </body>
 </html>`);
   } catch (err) {
     return res.status(500).send(`Could not load assigned abstract: ${err.message}`);
+  }
+}
+
+async function postReviewerSubmitFeedback(req, res) {
+  try {
+    const reviewerId = req.session?.user?.id;
+    if (!reviewerId) return res.redirect("/login");
+
+    const intent = String(req.body?.intent || "submit").trim().toLowerCase();
+    if (intent === "draft") {
+      await abstractDao.saveReviewerFeedbackDraft(req.params.id, reviewerId, {
+        decision: req.body?.decision,
+        comment: req.body?.comment
+      });
+    } else {
+      await abstractDao.submitReviewerFeedback(req.params.id, reviewerId, {
+        decision: req.body?.decision,
+        comment: req.body?.comment
+      });
+    }
+    return res.redirect("/reviewer/abstract");
+  } catch (err) {
+    return res.status(400).send(`Could not save feedback: ${err.message}`);
   }
 }
 
@@ -1267,15 +1425,17 @@ async function postAbstractDelete(req, res) {
 
 async function getCommitteeDashboard(req, res) {
   try {
-    const [pendingApplications, allPendingAccounts, submittedAbstracts, approvedReviewerAccounts, approvedReviewerApplications] = await Promise.all([
+    const [pendingApplications, allPendingAccounts, submittedAbstracts, approvedReviewerAccounts, approvedReviewerApplications, allAbstracts] = await Promise.all([
       getApplicationsByStatus("Pending"),
       getAllStatus("Pending"),
       abstractDao.getSubmittedAbstracts ? abstractDao.getSubmittedAbstracts() : Promise.resolve([]),
       getAccountsByTypeAndStatus ? getAccountsByTypeAndStatus("Reviewer", "Approved") : Promise.resolve([]),
-      getApprovedReviewerApplications ? getApprovedReviewerApplications() : Promise.resolve([])
+      getApprovedReviewerApplications ? getApprovedReviewerApplications() : Promise.resolve([]),
+      abstractDao.getAllAbstracts ? abstractDao.getAllAbstracts() : Promise.resolve([])
     ]);
     const pendingAccounts = allPendingAccounts.filter((a) => a.accountType === "Student" || a.accountType === "Reviewer");
     const pendingAbstracts = submittedAbstracts.filter((a) => a.finalStatus === "Pending");
+    const pendingFeedbackAbstracts = allAbstracts.filter((a) => Array.isArray(a.pendingFeedback) && a.pendingFeedback.length > 0);
 
     const eligibleReviewerIds = new Set(approvedReviewerApplications.map((a) => String(a.reviewerId)));
     const eligibleReviewers = approvedReviewerAccounts.filter((a) => eligibleReviewerIds.has(String(a._id)));
@@ -1368,6 +1528,32 @@ async function getCommitteeDashboard(req, res) {
       })
       .join("");
 
+
+
+    const pendingFeedbackRows = pendingFeedbackAbstracts
+      .map((abs) => {
+        const abstractId = escapeHtml(abs._id);
+        return (abs.pendingFeedback || []).map((item, index) => `
+          <tr>
+            <td>${escapeHtml(abs.studentName || "")}</td>
+            <td>${escapeHtml(abs.title || "")}</td>
+            <td>${escapeHtml(item.reviewerName || abs.assignedReviewerName || "Reviewer")}</td>
+            <td>${escapeHtml(item.decision || "")}</td>
+            <td style="white-space: pre-wrap;">${escapeHtml(item.comment || "")}</td>
+            <td>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <form method="post" action="/committee/abstracts/${abstractId}/feedback/${index}/approve" style="margin:0;">
+                  <button class="btn" type="submit">Release to Student</button>
+                </form>
+                <form method="post" action="/committee/abstracts/${abstractId}/feedback/${index}/deny" style="margin:0;">
+                  <button class="btn btn-danger" type="submit">Deny Release</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        `).join("");
+      })
+      .join("");
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -1399,6 +1585,7 @@ async function getCommitteeDashboard(req, res) {
             <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
               <a class="btn" href="/committee/info">My Info</a>
               <a class="btn btn-secondary" href="/committee/abstracts">Manage Abstracts</a>
+              <a class="btn btn-secondary" href="/gallery">Approved Gallery</a>
               <span class="badge badge-approved">${eligibleReviewers.length} Eligible Reviewers</span>
             </div>
           </section>
@@ -1419,6 +1606,11 @@ async function getCommitteeDashboard(req, res) {
               <p>Assign each submitted abstract to exactly one eligible reviewer. Reviewers can only hold one abstract at a time.</p>
               <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;"><span class="badge badge-pending">${submittedAbstracts.length} Submitted</span><a class="btn btn-secondary" href="/committee/abstracts">Manage All Abstracts</a></div>
             </div>
+            <div class="tile tile-accent-committee">
+              <h2>Pending Reviewer Feedback</h2>
+              <p>Approve or deny reviewer feedback before it is released to the student.</p>
+              <div><span class="badge badge-pending">${pendingFeedbackAbstracts.reduce((sum, abs) => sum + ((abs.pendingFeedback || []).length), 0)} Pending</span></div>
+            </div>
           </section>
 
           <h2 class="section-title">Abstract Assignment Queue</h2>
@@ -1437,6 +1629,27 @@ async function getCommitteeDashboard(req, res) {
               </thead>
               <tbody>
                 ${abstractRows || `<tr><td colspan="6" class="muted">No submitted abstracts available.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+
+
+          <h2 class="section-title">Pending Reviewer Feedback</h2>
+          <p class="muted" style="margin-top:0;">Reviewer feedback is hidden from students until a committee member approves its release.</p>
+          <div class="table-wrap">
+            <table class="table" aria-label="pending reviewer feedback">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Abstract</th>
+                  <th>Reviewer</th>
+                  <th>Decision</th>
+                  <th>Feedback</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pendingFeedbackRows || `<tr><td colspan="6" class="muted">No reviewer feedback is waiting for committee review.</td></tr>`}
               </tbody>
             </table>
           </div>
@@ -1519,6 +1732,24 @@ async function postCommitteeApproveAbstract(req, res) {
     return res.redirect("/dashboard");
   } catch (err) {
     return res.status(400).send(`Could not approve abstract: ${err.message}`);
+  }
+}
+
+async function postCommitteeApproveReviewerFeedback(req, res) {
+  try {
+    await abstractDao.approveReviewerFeedback(req.params.id, req.params.index);
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not approve reviewer feedback: ${err.message}`);
+  }
+}
+
+async function postCommitteeDenyReviewerFeedback(req, res) {
+  try {
+    await abstractDao.denyReviewerFeedback(req.params.id, req.params.index);
+    return res.redirect("/dashboard");
+  } catch (err) {
+    return res.status(400).send(`Could not deny reviewer feedback: ${err.message}`);
   }
 }
 
@@ -1668,6 +1899,131 @@ async function getCommitteeMembersPage(req, res) {
     return res.status(200).send(html);
   } catch (err) {
     return res.status(500).send(`Could not load committee members: ${err.message}`);
+  }
+}
+
+
+async function getAbstractGalleryPage(req, res) {
+  try {
+    const abstracts = abstractDao.getApprovedGalleryAbstracts ? await abstractDao.getApprovedGalleryAbstracts() : [];
+    const rows = abstracts
+      .map((abs) => `
+        <tr>
+          <td><a href="/gallery/${escapeHtml(abs._id)}">${escapeHtml(abs.title || "Untitled Abstract")}</a></td>
+          <td>${escapeHtml(abs.studentName || "Unknown Author")}</td>
+          <td>${escapeHtml(abs.presentationType || "")}</td>
+        </tr>
+      `)
+      .join("");
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Approved Abstract Gallery • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/committee-members">Committee Member Info</a>
+        <a class="btn btn-secondary" href="/dashboard">Back to Dashboard</a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">Approved Abstract Gallery</h1>
+        <p class="muted" style="margin-top:0;">Browse all abstracts that reached a final approved decision. Select a title to open the full abstract with its description and author.</p>
+
+        <div class="table-wrap">
+          <table class="table" aria-label="approved abstract gallery">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || `<tr><td colspan="3" class="muted">There are no fully approved abstracts in the gallery yet.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(500).send(`Could not load gallery: ${err.message}`);
+  }
+}
+
+async function getAbstractGalleryDetailPage(req, res) {
+  try {
+    const abs = await abstractDao.getAbstractById(req.params.id);
+    if (!abs || String(abs.submissionState || "") !== "Submitted" || String(abs.finalStatus || "") !== "Approved" || !abs.isComplete) {
+      return res.status(404).send("Approved abstract not found");
+    }
+
+    const html = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(abs.title || "Approved Abstract")} • Abstract Portal</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar" aria-label="topbar">
+      <a class="brand" href="/dashboard" aria-label="dashboard">
+        <div class="logo" aria-hidden="true">
+          <span class="logo-mark">AP</span>
+        </div>
+        <span class="brand-name">Abstract Portal</span>
+      </a>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="/gallery">Back to Gallery</a>
+        <a class="btn btn-secondary" href="/dashboard">Dashboard</a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <h1 class="card-title">${escapeHtml(abs.title || "Untitled Abstract")}</h1>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+          <span class="badge badge-approved">Approved</span>
+          <span class="badge">${escapeHtml(abs.presentationType || "Presentation")}</span>
+        </div>
+
+        <div class="dashboard-grid" style="margin-top:18px;">
+          <div class="tile">
+            <h2>Author</h2>
+            <p><strong>${escapeHtml(abs.studentName || "Unknown Author")}</strong></p>
+            <p class="muted">${escapeHtml(abs.studentField || "")}</p>
+          </div>
+          <div class="tile">
+            <h2>Description</h2>
+            <p style="white-space: pre-wrap;">${escapeHtml(abs.description || "")}</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>`;
+
+    return res.status(200).send(html);
+  } catch (err) {
+    return res.status(500).send(`Could not load approved abstract: ${err.message}`);
   }
 }
 
@@ -1853,6 +2209,7 @@ module.exports = {
   getReviewerApplication,
   postReviewerApplication,
   getReviewerAssignedAbstractView,
+  postReviewerSubmitFeedback,
   getAbstractManagementPage,
   getAbstractEditForm,
   postAbstractEdit,
@@ -1861,11 +2218,15 @@ module.exports = {
   postCommitteeAssignAbstract,
   postCommitteeUnassignAbstract,
   postCommitteeApproveAbstract,
+  postCommitteeApproveReviewerFeedback,
+  postCommitteeDenyReviewerFeedback,
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,
   postCommitteeDenyAccount,
   getCommitteeInfoForm,
   postCommitteeInfoForm,
-  getCommitteeMembersPage
+  getCommitteeMembersPage,
+  getAbstractGalleryPage,
+  getAbstractGalleryDetailPage
 };

@@ -6,7 +6,30 @@ const FeedbackSchema = new mongoose.Schema(
     reviewerName: { type: String, trim: true },
     date: { type: Date, default: Date.now },
     comment: { type: String, trim: true },
-    decision: { type: String, enum: ["Approved", "Denied", "Comment"], default: "Comment" }
+    decision: { type: String, enum: ["Approved", "Work In Progress", "Denied", "Comment"], default: "Comment" }
+  },
+  { _id: false }
+);
+
+
+const PendingFeedbackSchema = new mongoose.Schema(
+  {
+    reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: "Account" },
+    reviewerName: { type: String, trim: true },
+    date: { type: Date, default: Date.now },
+    comment: { type: String, trim: true },
+    decision: { type: String, enum: ["Approved", "Work In Progress", "Denied"], required: true }
+  },
+  { _id: false }
+);
+
+const FeedbackDraftSchema = new mongoose.Schema(
+  {
+    reviewerId: { type: mongoose.Schema.Types.ObjectId, ref: "Account" },
+    reviewerName: { type: String, trim: true },
+    lastUpdated: { type: Date, default: Date.now },
+    comment: { type: String, trim: true, default: "" },
+    decision: { type: String, enum: ["Approved", "Work In Progress", "Denied", ""], default: "" }
   },
   { _id: false }
 );
@@ -25,13 +48,17 @@ const AbstractSchema = new mongoose.Schema(
     lastUpdated: { type: Date, default: Date.now },
 
     feedbackHistory: { type: [FeedbackSchema], default: [] },
+    pendingFeedback: { type: [PendingFeedbackSchema], default: [] },
+    feedbackDraft: { type: FeedbackDraftSchema, default: null },
 
     assignmentStatus: { type: String, enum: ["Unassigned", "Assigned"], default: "Unassigned" },
     assignedReviewerId: { type: mongoose.Schema.Types.ObjectId, ref: "Account", default: null, index: true },
     assignedReviewerName: { type: String, trim: true, default: "" },
     assignedAt: { type: Date, default: null },
 
-    finalStatus: { type: String, required: true, enum: ["Pending", "Approved", "Denied"], default: "Pending" }
+    finalStatus: { type: String, required: true, enum: ["Pending", "Approved", "Denied"], default: "Pending" },
+    isComplete: { type: Boolean, default: false },
+    completedAt: { type: Date, default: null }
   },
   { timestamps: true }
 );

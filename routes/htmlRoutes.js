@@ -28,6 +28,7 @@ const {
   getReviewerApplication,
   postReviewerApplication,
   getReviewerAssignedAbstractView,
+  postReviewerSubmitFeedback,
   getAbstractManagementPage,
   getAbstractEditForm,
   postAbstractEdit,
@@ -35,6 +36,8 @@ const {
   postCommitteeAssignAbstract,
   postCommitteeUnassignAbstract,
   postCommitteeApproveAbstract,
+  postCommitteeApproveReviewerFeedback,
+  postCommitteeDenyReviewerFeedback,
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,
@@ -45,6 +48,9 @@ const {
   getAbstractSubmitForm,
   postAbstractSubmit,
   getStudentAbstractView,
+  requireAuth,
+  getAbstractGalleryPage,
+  getAbstractGalleryDetailPage,
 } = require("../controller/homeController");
 
 router.get("/", getIndex);
@@ -67,6 +73,8 @@ router.get("/register/committee", getRegisterCommittee);
 router.post("/register/committee", postRegisterCommittee);
 
 router.get("/committee-members", getCommitteeMembersPage);
+router.get("/gallery", requireAuth, getAbstractGalleryPage);
+router.get("/gallery/:id", requireAuth, getAbstractGalleryDetailPage);
 
 router.get("/admin/accounts", requireAdmin, getAdminManageAccounts);
 router.get("/admin/accounts/create", requireAdmin, getAdminCreateAccountForm);
@@ -78,6 +86,7 @@ router.post("/admin/accounts/:id/delete", requireAdmin, postAdminDeleteAccount);
 router.get("/reviewer/application", requireReviewer, getReviewerApplication);
 router.post("/reviewer/application", requireReviewer, postReviewerApplication);
 router.get("/reviewer/abstract", requireReviewer, getReviewerAssignedAbstractView);
+router.post("/reviewer/abstract/:id/feedback", requireReviewer, postReviewerSubmitFeedback);
 
 router.get("/committee/info", requireCommittee, getCommitteeInfoForm);
 router.post("/committee/info", requireCommittee, postCommitteeInfoForm);
@@ -89,6 +98,8 @@ router.post("/committee/accounts/:id/deny", requireCommittee, postCommitteeDenyA
 router.post("/committee/abstracts/:id/assign", requireCommittee, postCommitteeAssignAbstract);
 router.post("/committee/abstracts/:id/unassign", requireCommittee, postCommitteeUnassignAbstract);
 router.post("/committee/abstracts/:id/approvefinal", requireCommittee, postCommitteeApproveAbstract);
+router.post("/committee/abstracts/:id/feedback/:index/approve", requireCommittee, postCommitteeApproveReviewerFeedback);
+router.post("/committee/abstracts/:id/feedback/:index/deny", requireCommittee, postCommitteeDenyReviewerFeedback);
 
 router.post("/admin/accounts/:id/approve", requireAdmin, postCommitteeApproveAccount);
 router.post("/admin/accounts/:id/deny", requireAdmin, postCommitteeDenyAccount);
