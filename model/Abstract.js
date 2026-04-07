@@ -70,8 +70,9 @@ const AbstractSchema = new mongoose.Schema(
     isComplete: { type: Boolean, default: false },
     completedAt: { type: Date, default: null },
 
-    commentHistory: { type: [CommentSchema], default: []}
+    commentHistory: { type: [CommentSchema], default: []},
 
+    isPreviousWinner: { type: Boolean, default: false}
   },
   { timestamps: true }
 );

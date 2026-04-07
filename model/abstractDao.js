@@ -148,6 +148,13 @@ async function getApprovedGalleryAbstracts() {
     .lean();
 }
 
+async function getPreviousWinners() {
+  return Abstract.find({ isPreviousWinner: true })
+    .sort({ completedAt: -1, updatedAt: -1, createdAt: -1 })
+    .select({ title: 1, description: 1, studentName: 1, studentField: 1, presentationType: 1, completedAt: 1, finalStatus: 1, isComplete: 1 })
+    .lean();
+}
+
 async function getAssignedAbstractByReviewerId(reviewerId) {
   const id = String(reviewerId || "").trim();
   if (!id) throw new Error("reviewerId is required");
@@ -487,6 +494,7 @@ module.exports = {
   getAllAbstracts,
   getAssignedAbstractByReviewerId,
   getApprovedGalleryAbstracts,
+  getPreviousWinners,
   assignAbstractToReviewer,
   saveReviewerFeedbackDraft,
   submitReviewerFeedback,

@@ -1928,7 +1928,16 @@ async function getAbstractGalleryPage(req, res) {
         </tr>
       `)
       .join("");
-
+    const previousWinners = abstractDao.getPreviousWinners ? await abstractDao.getPreviousWinners() : [];
+    const rowsP = previousWinners
+      .map((abs) => `
+        <tr>
+          <td><a href="/gallery/${escapeHtml(abs._id)}">${escapeHtml(abs.title || "Untitled Abstract")}</a></td>
+          <td>${escapeHtml(abs.studentName || "Unknown Author")}</td>
+          <td>${escapeHtml(abs.presentationType || "")}</td>
+        </tr>
+      `)
+      .join("");
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -1967,6 +1976,25 @@ async function getAbstractGalleryPage(req, res) {
             </thead>
             <tbody>
               ${rows || `<tr><td colspan="3" class="muted">There are no fully approved abstracts in the gallery yet.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card">
+        <h1 class="card-title">Previous Winners</h1>
+        <p class="muted" style="margin-top:0;">Browse abstracts that won in previous years.</p>
+
+        <div class="table-wrap">
+          <table class="table" aria-label="previous winner gallery">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Author</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsP || `<tr><td colspan="3" class="muted">There are no previous winners to display yet.</td></tr>`}
             </tbody>
           </table>
         </div>
