@@ -34,6 +34,16 @@ const FeedbackDraftSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const CommentSchema = new mongoose.Schema(
+  {
+    commentId: { type: mongoose.Schema.Types.ObjectId, ref: "Account" },
+    commenter: { type: String, trim: true, default: ""},
+    postedDate: { type: Date, default: Date.now },
+    comment: { type: String, trim: true, default: "" }
+  },
+  { _id: false }
+);
+
 const AbstractSchema = new mongoose.Schema(
   {
     studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true, unique: true, index: true },
@@ -58,7 +68,10 @@ const AbstractSchema = new mongoose.Schema(
 
     finalStatus: { type: String, required: true, enum: ["Pending", "Approved", "Denied"], default: "Pending" },
     isComplete: { type: Boolean, default: false },
-    completedAt: { type: Date, default: null }
+    completedAt: { type: Date, default: null },
+
+    commentHistory: { type: [CommentSchema], default: []}
+
   },
   { timestamps: true }
 );

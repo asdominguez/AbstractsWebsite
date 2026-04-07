@@ -340,6 +340,42 @@ async function denyReviewerFeedback(abstractId, feedbackIndex) {
   return abs.toObject();
 }
 
+async function addComment(abstractId, studentId, data) {
+  const absId = String(abstractId || "").trim();
+  const stuId = String(studentId || "").trim();
+  if (!absId) throw new Error("abstractId is required");
+  if (!stuId) throw new Error("studentId is required");
+
+  const [abs, student] = await Promise.all([
+    Abstract.findById(absId),
+    Account.findById(stuId).select({ accountType: 1, status: 1, email: 1}).lean()
+  ]);
+
+  if (!abs) throw new Error("Abstract not found");
+  if (!student || student.accountType !== "Student" || student.status !== "Approved") {
+    throw new Error("Commenter must be an approved student account");
+  }
+  if (String(abs.submissionState || "") !== "Submitted") {
+    throw new Error("Only submitted abstracts can receive comments");
+  }
+
+  const commentText = String(data?.comment ?? "").trim();
+  if (!commentText) throw new Error("comment is required");
+  const commentAccount = (student.email).trim();
+  if (!commentText) throw new Error("comment is required");
+
+  const comment = {
+    commentId: stuId,
+    commenter: commentAccount,
+    postedDate: new Date(),
+    comment: commentText
+  };
+
+  abs.commentHistory.push(comment);
+  await abs.save();
+  return abs.toObject();
+}
+
 async function updateAbstractById(abstractId, data) {
   const id = String(abstractId || "").trim();
   if (!id) throw new Error("abstractId is required");
@@ -456,6 +492,7 @@ module.exports = {
   submitReviewerFeedback,
   approveReviewerFeedback,
   denyReviewerFeedback,
+  addComment,
   updateAbstractById,
   deleteAbstractById,
   unassignAbstract,

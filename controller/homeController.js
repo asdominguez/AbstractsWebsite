@@ -1399,6 +1399,19 @@ async function getAbstractEditForm(req, res) {
   }
 }
 
+async function postStudentAddComment(req, res) {
+  try {
+    const studentId = req.session?.user?.id;
+    if (!studentId) return res.redirect("/login");
+    await abstractDao.addComment(req.params.id, studentId, {
+      comment: req.body?.comment
+    });
+    return res.redirect(`/gallery/${req.params.id}`);
+  } catch (err) {
+    return res.status(400).send(`Could not save comment: ${err.message}`);
+  }
+}
+
 async function postAbstractEdit(req, res) {
   try {
     await abstractDao.updateAbstractById(req.params.id, {
@@ -1974,7 +1987,12 @@ async function getAbstractGalleryDetailPage(req, res) {
     if (!abs || String(abs.submissionState || "") !== "Submitted" || String(abs.finalStatus || "") !== "Approved" || !abs.isComplete) {
       return res.status(404).send("Approved abstract not found");
     }
-
+    const rows = abs.commentHistory.map((item) => `
+          <tr>
+            <td>${escapeHtml(item.commenter)}</td>
+            <td style="white-space: pre-wrap;">${escapeHtml(item.comment || "")}</td>
+          </tr>
+        `).join("");
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -2016,6 +2034,30 @@ async function getAbstractGalleryDetailPage(req, res) {
             <p style="white-space: pre-wrap;">${escapeHtml(abs.description || "")}</p>
           </div>
         </div>
+        <form class="form" method="post" action="/gallery/${abs._id}/comment" aria-label="submit-abstract-form">
+            <label class="label">
+              <span>Leave a comment</span>
+              <textarea class="input" name="comment" rows="2">${""}</textarea>
+            </label>
+            
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:8px;">
+              <button class="btn" type="submit">Leave Comment</button>
+            </div>
+            <div class="table-wrap">  
+              
+              <table class="table" aria-label="comment section">
+                <thead>
+                  <tr>
+                    <th>Comments</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows || ``}
+                </tbody>
+              </table>
+            </div>
+            
+            
       </section>
     </main>
   </body>
@@ -2220,6 +2262,7 @@ module.exports = {
   postCommitteeApproveAbstract,
   postCommitteeApproveReviewerFeedback,
   postCommitteeDenyReviewerFeedback,
+  postStudentAddComment,
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,

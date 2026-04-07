@@ -38,6 +38,7 @@ const {
   postCommitteeApproveAbstract,
   postCommitteeApproveReviewerFeedback,
   postCommitteeDenyReviewerFeedback,
+  postStudentAddComment,
   postCommitteeApproveApplication,
   postCommitteeDenyApplication,
   postCommitteeApproveAccount,
@@ -75,6 +76,7 @@ router.post("/register/committee", postRegisterCommittee);
 router.get("/committee-members", getCommitteeMembersPage);
 router.get("/gallery", requireAuth, getAbstractGalleryPage);
 router.get("/gallery/:id", requireAuth, getAbstractGalleryDetailPage);
+router.post("/gallery/:id/comment", requireStudent, postStudentAddComment);
 
 router.get("/admin/accounts", requireAdmin, getAdminManageAccounts);
 router.get("/admin/accounts/create", requireAdmin, getAdminCreateAccountForm);
@@ -118,5 +120,6 @@ router.post("/admin/abstracts/:id/delete", requireCommitteeOrAdmin, postAbstract
 router.get("/student/abstract/submit", requireStudent, getAbstractSubmitForm);
 router.post("/student/abstract/submit", requireStudent, postAbstractSubmit);
 router.get("/student/abstract", requireStudent, getStudentAbstractView);
+
 
 module.exports = router;
