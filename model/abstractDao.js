@@ -141,15 +141,35 @@ async function getAllAbstracts() {
 }
 
 
-async function getApprovedGalleryAbstracts() {
-  return Abstract.find({ submissionState: "Submitted", finalStatus: "Approved", isComplete: true })
+async function getApprovedGalleryAbstracts(titleQuery = "") {
+  const normalizedQuery = String(titleQuery || "").trim();
+  const filter = { submissionState: "Submitted", finalStatus: "Approved", isComplete: true };
+
+  if (normalizedQuery) {
+    filter.title = {
+      $regex: normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      $options: "i"
+    };
+  }
+
+  return Abstract.find(filter)
     .sort({ completedAt: -1, updatedAt: -1, createdAt: -1 })
     .select({ title: 1, description: 1, studentName: 1, studentField: 1, presentationType: 1, completedAt: 1, finalStatus: 1, isComplete: 1 })
     .lean();
 }
 
-async function getPreviousWinners() {
-  return Abstract.find({ isPreviousWinner: true })
+async function getPreviousWinners(titleQuery = "") {
+  const normalizedQuery = String(titleQuery || "").trim();
+  const filter = { isPreviousWinner: true };
+
+  if (normalizedQuery) {
+    filter.title = {
+      $regex: normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      $options: "i"
+    };
+  }
+
+  return Abstract.find(filter)
     .sort({ completedAt: -1, updatedAt: -1, createdAt: -1 })
     .select({ title: 1, description: 1, studentName: 1, studentField: 1, presentationType: 1, completedAt: 1, finalStatus: 1, isComplete: 1 })
     .lean();

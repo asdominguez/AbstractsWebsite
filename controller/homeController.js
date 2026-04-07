@@ -1918,7 +1918,8 @@ async function getCommitteeMembersPage(req, res) {
 
 async function getAbstractGalleryPage(req, res) {
   try {
-    const abstracts = abstractDao.getApprovedGalleryAbstracts ? await abstractDao.getApprovedGalleryAbstracts() : [];
+    const titleQuery = String(req.query?.q || "").trim();
+    const abstracts = abstractDao.getApprovedGalleryAbstracts ? await abstractDao.getApprovedGalleryAbstracts(titleQuery) : [];
     const rows = abstracts
       .map((abs) => `
         <tr>
@@ -1928,7 +1929,7 @@ async function getAbstractGalleryPage(req, res) {
         </tr>
       `)
       .join("");
-    const previousWinners = abstractDao.getPreviousWinners ? await abstractDao.getPreviousWinners() : [];
+    const previousWinners = abstractDao.getPreviousWinners ? await abstractDao.getPreviousWinners(titleQuery) : [];
     const rowsP = previousWinners
       .map((abs) => `
         <tr>
@@ -1938,6 +1939,9 @@ async function getAbstractGalleryPage(req, res) {
         </tr>
       `)
       .join("");
+    const searchSummary = titleQuery
+      ? `<p class="muted" style="margin-top:8px;">Showing results for <strong>${escapeHtml(titleQuery)}</strong>.</p>`
+      : "";
     const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -1964,6 +1968,15 @@ async function getAbstractGalleryPage(req, res) {
       <section class="card">
         <h1 class="card-title">Approved Abstract Gallery</h1>
         <p class="muted" style="margin-top:0;">Browse all abstracts that reached a final approved decision. Select a title to open the full abstract with its description and author.</p>
+        <form class="form" method="get" action="/gallery" aria-label="gallery-search-form" style="margin: 18px 0 10px 0; display:grid; gap:10px; grid-template-columns: minmax(0, 1fr) auto auto; align-items:end;">
+          <div>
+            <label for="gallery-search">Search by title</label>
+            <input id="gallery-search" name="q" type="text" value="${escapeHtml(titleQuery)}" placeholder="Enter a full or partial abstract title" />
+          </div>
+          <button class="btn btn-primary" type="submit">Search</button>
+          <a class="btn btn-secondary" href="/gallery">Clear</a>
+        </form>
+        ${searchSummary}
 
         <div class="table-wrap">
           <table class="table" aria-label="approved abstract gallery">
@@ -1975,7 +1988,7 @@ async function getAbstractGalleryPage(req, res) {
               </tr>
             </thead>
             <tbody>
-              ${rows || `<tr><td colspan="3" class="muted">There are no fully approved abstracts in the gallery yet.</td></tr>`}
+              ${rows || `<tr><td colspan="3" class="muted">${titleQuery ? `No fully approved abstracts matched "${escapeHtml(titleQuery)}".` : `There are no fully approved abstracts in the gallery yet.`}</td></tr>`}
             </tbody>
           </table>
         </div>
@@ -1994,7 +2007,7 @@ async function getAbstractGalleryPage(req, res) {
               </tr>
             </thead>
             <tbody>
-              ${rowsP || `<tr><td colspan="3" class="muted">There are no previous winners to display yet.</td></tr>`}
+              ${rowsP || `<tr><td colspan="3" class="muted">${titleQuery ? `No previous winners matched "${escapeHtml(titleQuery)}".` : `There are no previous winners to display yet.`}</td></tr>`}
             </tbody>
           </table>
         </div>

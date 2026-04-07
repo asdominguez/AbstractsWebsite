@@ -312,7 +312,7 @@ describe('homeController additional coverage', () => {
     expect(res.body).toContain('Approved Abstract Gallery');
     expect(res.body).toContain('Approved Title');
 
-    abstractDao.getAbstractById.mockResolvedValueOnce({ _id: 'a1', title: 'Approved Title', submissionState: 'Submitted', finalStatus: 'Approved', isComplete: true, presentationType: 'Poster', studentName: 'Stu', studentField: 'Bio', description: 'Full description' });
+    abstractDao.getAbstractById.mockResolvedValueOnce({ _id: 'a1', title: 'Approved Title', submissionState: 'Submitted', finalStatus: 'Approved', isComplete: true, presentationType: 'Poster', studentName: 'Stu', studentField: 'Bio', description: 'Full description', commentHistory: [] });
     res = makeRes();
     await controller.getAbstractGalleryDetailPage({ params: { id: 'a1' } }, res);
     expect(res.body).toContain('Full description');
