@@ -15,21 +15,30 @@ jest.mock("../model/accountDao", () => ({
   getAllNonAdminAccounts: jest.fn(),
   deleteAccountByIdNonAdmin: jest.fn(),
   getAllStatus: jest.fn(),
+  getAccountsByTypeAndStatus: jest.fn(),
   setAccountStatus: jest.fn(),
   updateCommitteeInfo: jest.fn(),
-  getCommitteeMemberInfoList: jest.fn()
+  getCommitteeMemberInfoList: jest.fn(),
+  getAccountById: jest.fn()
 }));
 
 jest.mock("../model/abstractDao", () => ({
   upsertStudentAbstract: jest.fn(),
-  getAbstractByStudentId: jest.fn()
+  getAbstractByStudentId: jest.fn(),
+  getSubmittedAbstracts: jest.fn(),
+  getAllAbstracts: jest.fn()
 }));
 
 jest.mock("../model/applicationDao", () => ({
   createReviewerApplicationOnce: jest.fn(),
   getApplicationByReviewerId: jest.fn(),
   getApplicationsByStatus: jest.fn(),
+  getApprovedReviewerApplications: jest.fn(),
   setApplicationStatus: jest.fn()
+}));
+
+jest.mock("../model/announcementDao", () => ({
+  getActiveAnnouncements: jest.fn().mockResolvedValue([])
 }));
 
 
@@ -59,9 +68,10 @@ describe("HTML routes", () => {
     expect(res.text).toContain('href="/register"');
   });
 
-  it("POST /login returns 400 when missing identifier", async () => {
+  it("POST /login redirects back to /login with inline error when credentials are missing", async () => {
     const res = await request(app).post("/login").send({ password: "y" });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(302);
+    expect(res.headers.location).toBe("/login?error=invalid");
   });
 
   it("POST /login redirects to /dashboard when credentials are valid", async () => {
@@ -237,6 +247,10 @@ describe("Reviewer application + committee review", () => {
     ]);
 
     dao.getAllStatus.mockResolvedValueOnce([]);
+    absDao.getSubmittedAbstracts.mockResolvedValueOnce([]);
+    dao.getAccountsByTypeAndStatus.mockResolvedValueOnce([]);
+    appDao.getApprovedReviewerApplications.mockResolvedValueOnce([]);
+    absDao.getAllAbstracts.mockResolvedValueOnce([]);
 
     const agent = request.agent(app);
     await agent.post("/login").send({ identifier: "c@b.com", password: "pw" });
@@ -244,12 +258,25 @@ describe("Reviewer application + committee review", () => {
     const dash = await agent.get("/dashboard");
     expect(dash.statusCode).toBe(200);
     expect(dash.text).toContain("Review Applications");
-    expect(dash.text).toContain("Jane");
+    expect(dash.text).not.toContain("Jane");
+
+    appDao.getApplicationsByStatus.mockResolvedValueOnce([
+      { _id: "a1", name: "Jane", roles: ["Reviewer of Abstracts"], department: "Bio", email: "j@b.com" }
+    ]);
+    dao.getAllStatus.mockResolvedValueOnce([]);
+    absDao.getSubmittedAbstracts.mockResolvedValueOnce([]);
+    dao.getAccountsByTypeAndStatus.mockResolvedValueOnce([]);
+    appDao.getApprovedReviewerApplications.mockResolvedValueOnce([]);
+    absDao.getAllAbstracts.mockResolvedValueOnce([]);
+
+    const queue = await agent.get("/committee/applications");
+    expect(queue.statusCode).toBe(200);
+    expect(queue.text).toContain("Jane");
 
     appDao.setApplicationStatus.mockResolvedValueOnce({ _id: "a1", status: "Approved" });
     const res = await agent.post("/committee/applications/a1/approve").send({});
     expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe("/dashboard");
+    expect(res.headers.location).toBe("/committee/applications");
     expect(appDao.setApplicationStatus).toHaveBeenCalledWith("a1", "Approved");
   });
 
@@ -269,7 +296,7 @@ describe("Reviewer application + committee review", () => {
 
     const res = await agent.post("/committee/applications/a1/deny").send({});
     expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toBe("/dashboard");
+    expect(res.headers.location).toBe("/committee/applications");
     expect(appDao.setApplicationStatus).toHaveBeenCalledWith("a1", "Denied");
   });
 });

@@ -22,31 +22,102 @@
     <main class="page">
       <section class="card">
         <div class="dashboard-shell">
-          <section class="dashboard-hero hero-committee">
-            <span class="dashboard-kicker">Committee Review</span>
-            <h1>Committee Dashboard</h1>
-            <p>Approve pending student and reviewer accounts, review volunteer applications, and manage colloquium workflow.</p>
-          </section>
-
-          <section class="dashboard-grid">
-            <div class="tile tile-accent-committee">
-              <h2>My Info</h2>
-              <p>Update your public-facing committee profile and contact details.</p>
-              <div><a class="btn" href="/committee/info">My Info</a></div>
+          <section class="dashboard-hero hero-committee committee-hero-clean">
+            <div class="committee-hero-copy">
+              <span class="dashboard-kicker">Committee Review</span>
+              <h1>Committee Dashboard</h1>
+              <p>Open the specific queue you need without crowding the landing page. Priority counts stay visible here, while the detailed work remains inside each management area.</p>
             </div>
-            <div class="tile tile-accent-committee">
-              <h2>Pending Accounts</h2>
-              <p>Approved committee members can review student and reviewer accounts directly from the dashboard.</p>
-              <div><span class="badge badge-pending">Committee Access</span></div>
-            </div>
-            <div class="tile tile-accent-committee">
-              <h2>Reviewer Applications</h2>
-              <p>Review volunteer applications and make approve or deny decisions for reviewers.</p>
-              <div><span class="badge">Workflow Active</span></div>
+            <div class="committee-hero-stats" aria-label="committee summary">
+              <div class="committee-stat-pill">
+                <span class="committee-stat-label">Submitted</span>
+                <strong>0</strong>
+              </div>
+              <div class="committee-stat-pill">
+                <span class="committee-stat-label">Feedback</span>
+                <strong>0</strong>
+              </div>
+              <div class="committee-stat-pill">
+                <span class="committee-stat-label">Reviewers</span>
+                <strong>0</strong>
+              </div>
             </div>
           </section>
 
-          <form method="post" action="/logout" style="margin-top: 6px;">
+          <section class="committee-quick-links" aria-label="committee quick links">
+            <a class="committee-quick-link committee-quick-link-primary" href="/committee/abstracts">Manage Abstracts</a>
+            <a class="committee-quick-link" href="/committee/applications">Review Applications</a>
+            <a class="committee-quick-link" href="/committee/accounts">Pending Accounts</a>
+            <a class="committee-quick-link" href="/committee/feedback">Review Feedback</a>
+          </section>
+
+          <section class="dashboard-grid committee-dashboard-grid-clean">
+            <div class="tile tile-accent-committee committee-feature-tile">
+              <div class="committee-tile-topline">
+                <h2>Manage Abstracts</h2>
+                <span class="badge badge-pending">Queue</span>
+              </div>
+              <p>Assign reviewers, reassign submissions, and maintain abstract records from one focused queue.</p>
+              <div class="committee-tile-actions"><a class="btn btn-secondary" href="/committee/abstracts">Open Queue</a></div>
+            </div>
+            <div class="tile tile-accent-committee committee-feature-tile">
+              <div class="committee-tile-topline">
+                <h2>Review Applications</h2>
+                <span class="badge badge-pending">Queue</span>
+              </div>
+              <p>Approve or deny reviewer volunteer applications when you are ready to process them.</p>
+              <div class="committee-tile-actions"><a class="btn btn-secondary" href="/committee/applications">Open Queue</a></div>
+            </div>
+            <div class="tile tile-accent-committee committee-feature-tile">
+              <div class="committee-tile-topline">
+                <h2>Pending Accounts</h2>
+                <span class="badge badge-pending">Queue</span>
+              </div>
+              <p>Review student and reviewer account requests without mixing them into the rest of the dashboard.</p>
+              <div class="committee-tile-actions"><a class="btn btn-secondary" href="/committee/accounts">Open Queue</a></div>
+            </div>
+            <div class="tile tile-accent-committee committee-feature-tile">
+              <div class="committee-tile-topline">
+                <h2>Review Feedback</h2>
+                <span class="badge badge-pending">Queue</span>
+              </div>
+              <p>Approve reviewer feedback for release to students, or deny it before it becomes visible.</p>
+              <div class="committee-tile-actions"><a class="btn btn-secondary" href="/committee/feedback">Open Queue</a></div>
+            </div>
+          </section>
+
+          <section class="committee-secondary-panel">
+            <div class="committee-secondary-header">
+              <div>
+                <h2>Additional Tools</h2>
+                <p class="muted">Supporting actions are grouped here so the main dashboard stays focused on active queues.</p>
+              </div>
+            </div>
+            <div class="committee-secondary-grid">
+              <a class="committee-mini-card" href="/committee/info">
+                <span class="committee-mini-label">Profile</span>
+                <strong>My Info</strong>
+                <small>Update your public committee details.</small>
+              </a>
+              <a class="committee-mini-card" href="/gallery">
+                <span class="committee-mini-label">Gallery</span>
+                <strong>Approved Gallery</strong>
+                <small>View published abstracts and past winners.</small>
+              </a>
+              <a class="committee-mini-card" href="/announcements/create">
+                <span class="committee-mini-label">Announcements</span>
+                <strong>Create Announcement</strong>
+                <small>Post time-limited notices for all users.</small>
+              </a>
+              <a class="committee-mini-card" href="/announcements/manage">
+                <span class="committee-mini-label">Announcements</span>
+                <strong>Manage Yours</strong>
+                <small>Edit, end, or review your active notices.</small>
+              </a>
+            </div>
+          </section>
+
+          <form method="post" action="/logout" style="margin-top: 2px;">
             <button class="btn btn-secondary" type="submit">Logout</button>
           </form>
         </div>

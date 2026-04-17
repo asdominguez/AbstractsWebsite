@@ -32,6 +32,7 @@ function makeDoc(overrides = {}) {
     isComplete: false,
     pendingFeedback: [],
     feedbackHistory: [],
+    commentHistory: [],
     assignedReviewerId: 'r1',
     assignedReviewerName: 'Rev One',
     save: jest.fn().mockResolvedValue(),
@@ -44,6 +45,7 @@ function makeDoc(overrides = {}) {
         isComplete: this.isComplete,
         pendingFeedback: this.pendingFeedback,
         feedbackHistory: this.feedbackHistory,
+        commentHistory: this.commentHistory,
         feedbackDraft: this.feedbackDraft,
         assignedReviewerId: this.assignedReviewerId,
         assignedReviewerName: this.assignedReviewerName,
@@ -104,20 +106,13 @@ describe('abstractDao additional coverage', () => {
     await expect(dao.assignAbstractToReviewer('a1', 'r1')).rejects.toThrow('Reviewer must be an approved reviewer account');
   });
 
-  test('assignAbstractToReviewer succeeds and enforces uniqueness', async () => {
-    Abstract.findById.mockReturnValueOnce(chain({ _id: 'a1', submissionState: 'Submitted' }));
-    Account.findById.mockReturnValueOnce(chain({ _id: 'r1', accountType: 'Reviewer', status: 'Approved', username: 'R Name' }));
-    Abstract.findOne.mockReturnValueOnce(chain({ _id: 'other' }));
-    await expect(dao.assignAbstractToReviewer('a1', 'r1')).rejects.toThrow('Reviewer already has an assigned abstract');
-
+  test('assignAbstractToReviewer succeeds for multi-assignment reviewers and still protects abstract uniqueness', async () => {
     Abstract.findById.mockReturnValueOnce(chain({ _id: 'a1', submissionState: 'Submitted', assignedReviewerId: 'r2' }));
     Account.findById.mockReturnValueOnce(chain({ _id: 'r1', accountType: 'Reviewer', status: 'Approved', username: 'R Name' }));
-    Abstract.findOne.mockReturnValueOnce(chain(null));
     await expect(dao.assignAbstractToReviewer('a1', 'r1')).rejects.toThrow('Abstract is already assigned. Unassign it before reassigning.');
 
     Abstract.findById.mockReturnValueOnce(chain({ _id: 'a1', submissionState: 'Submitted' }));
     Account.findById.mockReturnValueOnce(chain({ _id: 'r1', accountType: 'Reviewer', status: 'Approved', username: 'R Name' }));
-    Abstract.findOne.mockReturnValueOnce(chain(null));
     Abstract.findByIdAndUpdate.mockReturnValueOnce(chain({ _id: 'a1', assignedReviewerName: 'R Name' }));
     const res = await dao.assignAbstractToReviewer('a1', 'r1');
     expect(res.assignedReviewerName).toBe('R Name');
@@ -245,17 +240,18 @@ describe('abstractDao additional coverage', () => {
   });
 
   test("draft and submit validation rejects completed or invalid student input", async () => {
-      Abstract.findOne.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue({ isComplete: true }) });
+      Abstract.findOne.mockReset();
+      Abstract.findOne.mockImplementationOnce(() => ({ lean: jest.fn().mockResolvedValue({ isComplete: true, finalStatus: "Approved" }) }));
       await expect(dao.saveStudentAbstractDraft("s1", { title: "x" })).rejects.toThrow("This abstract is complete and can no longer be changed by the student");
   
-      Abstract.findOne.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue(null) });
+      Abstract.findOne.mockImplementationOnce(() => ({ lean: jest.fn().mockResolvedValue(null) }));
       Account.findById.mockReturnValueOnce(chain(null));
       await expect(dao.saveStudentAbstractDraft("s1", { presentationType: "Demo" })).rejects.toThrow("presentationType must be Poster or Oral");
   
-      Abstract.findOne.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue(null) });
+      Abstract.findOne.mockImplementationOnce(() => ({ lean: jest.fn().mockResolvedValue(null) }));
       await expect(dao.submitStudentAbstract("s1", { title: "T", description: "", presentationType: "Poster" })).rejects.toThrow("description is required");
   
-      Abstract.findOne.mockReturnValueOnce({ lean: jest.fn().mockResolvedValue(null) });
+      Abstract.findOne.mockImplementationOnce(() => ({ lean: jest.fn().mockResolvedValue(null) }));
       await expect(dao.submitStudentAbstract("s1", { title: "T", description: "D", presentationType: "Demo" })).rejects.toThrow("presentationType must be Poster or Oral");
     });
   
@@ -349,7 +345,7 @@ describe('abstractDao additional coverage', () => {
   
     test("comment, update, delete, unassign, and final approval flows cover edge cases", async () => {
       await expect(dao.addComment("", "s1", { comment: "x" })).rejects.toThrow("abstractId is required");
-      await expect(dao.addComment("abs1", "", { comment: "x" })).rejects.toThrow("studentId is required");
+      await expect(dao.addComment("abs1", "", { comment: "x" })).rejects.toThrow("accountId is required");
   
       Abstract.findById.mockResolvedValueOnce(makeDoc({ submissionState: "Submitted" }));
       Account.findById.mockReturnValueOnce(chain({ accountType: "Student", status: "Approved", email: "student@example.com" }));
@@ -359,7 +355,12 @@ describe('abstractDao additional coverage', () => {
   
       Abstract.findById.mockResolvedValueOnce(makeDoc({ submissionState: "Submitted" }));
       Account.findById.mockReturnValueOnce(chain({ accountType: "Reviewer", status: "Approved", email: "r@example.com" }));
-      await expect(dao.addComment("abs1", "s1", { comment: "x" })).rejects.toThrow("Commenter must be an approved student account");
+      const reviewerComment = await dao.addComment("abs1", "r1", { comment: "reviewer note" });
+      expect(reviewerComment.commentHistory[0].commenter).toBe("r@example.com");
+
+      Abstract.findById.mockResolvedValueOnce(makeDoc({ submissionState: "Submitted" }));
+      Account.findById.mockReturnValueOnce(chain({ accountType: "Committee", status: "Approved", email: "c@example.com" }));
+      await expect(dao.addComment("abs1", "c1", { comment: "x" })).rejects.toThrow("Commenter must be an approved student or reviewer account");
   
       Abstract.findById.mockResolvedValueOnce(makeDoc({ submissionState: "Draft" }));
       Account.findById.mockReturnValueOnce(chain({ accountType: "Student", status: "Approved", email: "student@example.com" }));

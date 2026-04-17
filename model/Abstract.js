@@ -46,7 +46,7 @@ const CommentSchema = new mongoose.Schema(
 
 const AbstractSchema = new mongoose.Schema(
   {
-    studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: true, unique: true, index: true },
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: "Account", required: false, unique: true, sparse: true, index: true, default: null },
     studentName: { type: String, trim: true, required: true },
     studentField: { type: String, trim: true },
 

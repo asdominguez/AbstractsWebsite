@@ -76,21 +76,21 @@ describe("homeController unit branches", () => {
     expect(res.sendFile).toHaveBeenCalled();
   });
 
-  test("postLogin returns 401 when account not found", async () => {
+  test("postLogin redirects when account not found", async () => {
     dao.findByIdentifier.mockResolvedValueOnce(null);
     const req = { body: { identifier: "x", password: "y" }, session: {} };
     const res = makeRes();
     await controller.postLogin(req, res);
-    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.redirect).toHaveBeenCalledWith("/login?error=invalid");
   });
 
-  test("postLogin returns 401 when password invalid", async () => {
+  test("postLogin redirects when password invalid", async () => {
     dao.findByIdentifier.mockResolvedValueOnce({ _id: "1", accountType: "Student", password: "HASH" });
     dao.verifyPassword.mockResolvedValueOnce(false);
     const req = { body: { identifier: "x", password: "bad" }, session: {} };
     const res = makeRes();
     await controller.postLogin(req, res);
-    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.redirect).toHaveBeenCalledWith("/login?error=invalid");
   });
 
   test("postAbstractSubmit saves draft when intent=draft", async () => {

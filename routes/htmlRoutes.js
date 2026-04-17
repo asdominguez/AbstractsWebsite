@@ -46,12 +46,23 @@ const {
   getCommitteeInfoForm,
   postCommitteeInfoForm,
   getCommitteeMembersPage,
+  getCommitteeApplicationsPage,
+  getCommitteeAccountsPage,
+  getCommitteeFeedbackPage,
   getAbstractSubmitForm,
   postAbstractSubmit,
   getStudentAbstractView,
   requireAuth,
   getAbstractGalleryPage,
   getAbstractGalleryDetailPage,
+  getHistoricWinnerCreateForm,
+  postHistoricWinnerCreate,
+  getAnnouncementCreateForm,
+  postAnnouncementCreate,
+  getManageAnnouncementsPage,
+  getEditAnnouncementForm,
+  postEditAnnouncement,
+  postDeleteAnnouncement,
 } = require("../controller/homeController");
 
 router.get("/", getIndex);
@@ -74,9 +85,17 @@ router.get("/register/committee", getRegisterCommittee);
 router.post("/register/committee", postRegisterCommittee);
 
 router.get("/committee-members", getCommitteeMembersPage);
+router.get("/announcements/create", requireCommitteeOrAdmin, getAnnouncementCreateForm);
+router.post("/announcements/create", requireCommitteeOrAdmin, postAnnouncementCreate);
+router.get("/announcements/manage", requireCommitteeOrAdmin, getManageAnnouncementsPage);
+router.get("/announcements/:id/edit", requireCommitteeOrAdmin, getEditAnnouncementForm);
+router.post("/announcements/:id/edit", requireCommitteeOrAdmin, postEditAnnouncement);
+router.post("/announcements/:id/delete", requireCommitteeOrAdmin, postDeleteAnnouncement);
 router.get("/gallery", requireAuth, getAbstractGalleryPage);
+router.get("/gallery/historic/add", requireCommitteeOrAdmin, getHistoricWinnerCreateForm);
+router.post("/gallery/historic/add", requireCommitteeOrAdmin, postHistoricWinnerCreate);
 router.get("/gallery/:id", requireAuth, getAbstractGalleryDetailPage);
-router.post("/gallery/:id/comment", requireStudent, postStudentAddComment);
+router.post("/gallery/:id/comment", requireAuth, postStudentAddComment);
 
 router.get("/admin/accounts", requireAdmin, getAdminManageAccounts);
 router.get("/admin/accounts/create", requireAdmin, getAdminCreateAccountForm);
@@ -88,10 +107,14 @@ router.post("/admin/accounts/:id/delete", requireAdmin, postAdminDeleteAccount);
 router.get("/reviewer/application", requireReviewer, getReviewerApplication);
 router.post("/reviewer/application", requireReviewer, postReviewerApplication);
 router.get("/reviewer/abstract", requireReviewer, getReviewerAssignedAbstractView);
+router.get("/reviewer/abstract/:id", requireReviewer, getReviewerAssignedAbstractView);
 router.post("/reviewer/abstract/:id/feedback", requireReviewer, postReviewerSubmitFeedback);
 
 router.get("/committee/info", requireCommittee, getCommitteeInfoForm);
 router.post("/committee/info", requireCommittee, postCommitteeInfoForm);
+router.get("/committee/applications", requireCommittee, getCommitteeApplicationsPage);
+router.get("/committee/accounts", requireCommittee, getCommitteeAccountsPage);
+router.get("/committee/feedback", requireCommittee, getCommitteeFeedbackPage);
 
 router.post("/committee/applications/:id/approve", requireCommittee, postCommitteeApproveApplication);
 router.post("/committee/applications/:id/deny", requireCommittee, postCommitteeDenyApplication);

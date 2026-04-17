@@ -27,11 +27,23 @@ function isAbstractCompleteRecord(abs) {
 }
 
 async function getStudentAccountSnapshot(studentId) {
-  return Account.findById(studentId).select({ email: 1, username: 1, subjectArea: 1 }).lean();
+  const query = Account.findById(studentId);
+  if (typeof query?.select === "function") {
+    return query.select({ email: 1, username: 1, subjectArea: 1 }).lean();
+  }
+  if (typeof query?.lean === "function") {
+    return query.lean();
+  }
+  return query || null;
 }
 
 function studentDisplayName(account) {
   return String(account?.username || account?.email || "Student").trim();
+}
+
+function normalizeSubjectArea(value, fallback = "") {
+  const raw = value == null ? fallback : value;
+  return String(raw || "").trim();
 }
 
 function reviewerDisplayName(account) {
@@ -56,7 +68,7 @@ async function saveStudentAbstractDraft(studentId, data) {
   const payload = {
     studentId: id,
     studentName: studentDisplayName(account),
-    studentField: String(account?.subjectArea || "").trim(),
+    studentField: normalizeSubjectArea(data?.subjectArea, account?.subjectArea),
     lastUpdated: new Date(),
     submissionState: "Draft"
   };
@@ -67,11 +79,12 @@ async function saveStudentAbstractDraft(studentId, data) {
   const normalizedType = normalizeType(data?.presentationType);
   if (normalizedType) payload.presentationType = normalizedType;
 
-  return Abstract.findOneAndUpdate(
+  const updated = Abstract.findOneAndUpdate(
     { studentId: id },
     { $set: payload },
     { new: true, upsert: true }
-  ).lean();
+  );
+  return typeof updated?.lean === "function" ? updated.lean() : updated;
 }
 
 async function submitStudentAbstract(studentId, data) {
@@ -90,13 +103,13 @@ async function submitStudentAbstract(studentId, data) {
 
   const account = await getStudentAccountSnapshot(id);
 
-  return Abstract.findOneAndUpdate(
+  const updated = Abstract.findOneAndUpdate(
     { studentId: id },
     {
       $set: {
         studentId: id,
         studentName: studentDisplayName(account),
-        studentField: String(account?.subjectArea || "").trim(),
+        studentField: normalizeSubjectArea(data?.subjectArea, account?.subjectArea),
         title,
         description,
         presentationType,
@@ -108,7 +121,8 @@ async function submitStudentAbstract(studentId, data) {
       }
     },
     { new: true, upsert: true }
-  ).lean();
+  );
+  return typeof updated?.lean === "function" ? updated.lean() : updated;
 }
 
 async function saveStudentAbstract(studentId, data) {
@@ -144,7 +158,7 @@ async function getAllAbstracts() {
 async function getApprovedGalleryAbstracts(titleQuery = "", typeQuery = "") {
   const normalizedQuery = String(titleQuery || "").trim();
   const normalizedFilter = String(typeQuery || "").trim();
-  const filter = { submissionState: "Submitted", finalStatus: "Approved", isComplete: true };
+  const filter = { submissionState: "Submitted", finalStatus: "Approved", isComplete: true, isPreviousWinner: { $ne: true } };
 
   if (normalizedQuery) {
     filter.title = {
@@ -183,10 +197,15 @@ async function getPreviousWinners(titleQuery = "") {
     .lean();
 }
 
-async function getAssignedAbstractByReviewerId(reviewerId) {
+async function getAssignedAbstractsByReviewerId(reviewerId) {
   const id = String(reviewerId || "").trim();
   if (!id) throw new Error("reviewerId is required");
-  return Abstract.findOne({ assignedReviewerId: id }).lean();
+  return Abstract.find({ assignedReviewerId: id }).sort({ assignedAt: 1, updatedAt: -1, createdAt: -1 }).lean();
+}
+
+async function getAssignedAbstractByReviewerId(reviewerId) {
+  const assigned = await getAssignedAbstractsByReviewerId(reviewerId);
+  return assigned[0] || null;
 }
 
 async function assignAbstractToReviewer(abstractId, reviewerId) {
@@ -195,19 +214,15 @@ async function assignAbstractToReviewer(abstractId, reviewerId) {
   if (!absId) throw new Error("abstractId is required");
   if (!revId) throw new Error("reviewerId is required");
 
-  const [abs, reviewer, reviewerAssignment] = await Promise.all([
+  const [abs, reviewer] = await Promise.all([
     Abstract.findById(absId).lean(),
-    Account.findById(revId).select({ accountType: 1, status: 1, email: 1, username: 1 }).lean(),
-    Abstract.findOne({ assignedReviewerId: revId }).select({ _id: 1, title: 1 }).lean()
+    Account.findById(revId).select({ accountType: 1, status: 1, email: 1, username: 1 }).lean()
   ]);
 
   if (!abs) throw new Error("Abstract not found");
   if (abs.submissionState !== "Submitted") throw new Error("Only submitted abstracts can be assigned");
   if (!reviewer || reviewer.accountType !== "Reviewer" || reviewer.status !== "Approved") {
     throw new Error("Reviewer must be an approved reviewer account");
-  }
-  if (reviewerAssignment && String(reviewerAssignment._id) !== absId) {
-    throw new Error("Reviewer already has an assigned abstract");
   }
   if (abs.assignedReviewerId && String(abs.assignedReviewerId) !== revId) {
     throw new Error("Abstract is already assigned. Unassign it before reassigning.");
@@ -375,20 +390,20 @@ async function denyReviewerFeedback(abstractId, feedbackIndex) {
   return abs.toObject();
 }
 
-async function addComment(abstractId, studentId, data) {
+async function addComment(abstractId, accountId, data) {
   const absId = String(abstractId || "").trim();
-  const stuId = String(studentId || "").trim();
+  const userId = String(accountId || "").trim();
   if (!absId) throw new Error("abstractId is required");
-  if (!stuId) throw new Error("studentId is required");
+  if (!userId) throw new Error("accountId is required");
 
-  const [abs, student] = await Promise.all([
+  const [abs, account] = await Promise.all([
     Abstract.findById(absId),
-    Account.findById(stuId).select({ accountType: 1, status: 1, email: 1}).lean()
+    Account.findById(userId).select({ accountType: 1, status: 1, email: 1 }).lean()
   ]);
 
   if (!abs) throw new Error("Abstract not found");
-  if (!student || student.accountType !== "Student" || student.status !== "Approved") {
-    throw new Error("Commenter must be an approved student account");
+  if (!account || !["Student", "Reviewer"].includes(account.accountType) || account.status !== "Approved") {
+    throw new Error("Commenter must be an approved student or reviewer account");
   }
   if (String(abs.submissionState || "") !== "Submitted") {
     throw new Error("Only submitted abstracts can receive comments");
@@ -396,16 +411,16 @@ async function addComment(abstractId, studentId, data) {
 
   const commentText = String(data?.comment ?? "").trim();
   if (!commentText) throw new Error("comment is required");
-  const commentAccount = (student.email).trim();
-  if (!commentText) throw new Error("comment is required");
+  const commenterLabel = String(account.email || "").trim() || account.accountType;
 
   const comment = {
-    commentId: stuId,
-    commenter: commentAccount,
+    commentId: userId,
+    commenter: commenterLabel,
     postedDate: new Date(),
     comment: commentText
   };
 
+  if (!Array.isArray(abs.commentHistory)) abs.commentHistory = [];
   abs.commentHistory.push(comment);
   await abs.save();
   return abs.toObject();
@@ -420,6 +435,8 @@ async function updateAbstractById(abstractId, data) {
 
   const title = data?.title != null ? String(data.title).trim() : String(existing.title || "").trim();
   const description = data?.description != null ? String(data.description).trim() : String(existing.description || "").trim();
+  const studentName = data?.studentName != null ? String(data.studentName).trim() : String(existing.studentName || "").trim();
+  const studentField = normalizeSubjectArea(data?.subjectArea ?? data?.studentField, existing.studentField || "");
   const presentationType = data?.presentationType != null
     ? normalizeType(data.presentationType)
     : String(existing.presentationType || "Poster");
@@ -440,6 +457,8 @@ async function updateAbstractById(abstractId, data) {
 
   const isComplete = isTerminalDecision(finalStatus);
   const payload = {
+    studentName,
+    studentField,
     title,
     description,
     presentationType,
@@ -467,6 +486,40 @@ async function deleteAbstractById(abstractId) {
   const deleted = await Abstract.findByIdAndDelete(id).lean();
   if (!deleted) throw new Error("Abstract not found");
   return deleted;
+}
+
+async function createHistoricWinner(data) {
+  const studentName = String(data?.studentName || "").trim();
+  const title = String(data?.title || "").trim();
+  const description = String(data?.description || "").trim();
+  const presentationType = normalizeType(data?.presentationType);
+  const studentField = normalizeSubjectArea(data?.subjectArea ?? data?.studentField, "");
+
+  if (!studentName) throw new Error("studentName is required");
+  if (!title) throw new Error("title is required");
+  if (!description) throw new Error("description is required");
+  if (!presentationType) throw new Error("presentationType must be Poster or Oral");
+
+  const created = await Abstract.create({
+    studentId: null,
+    studentName,
+    studentField,
+    title,
+    description,
+    presentationType,
+    submissionState: "Submitted",
+    assignmentStatus: "Unassigned",
+    finalStatus: "Approved",
+    isComplete: true,
+    completedAt: new Date(),
+    isPreviousWinner: true,
+    feedbackHistory: [],
+    pendingFeedback: [],
+    commentHistory: [],
+    lastUpdated: new Date()
+  });
+
+  return typeof created?.toObject === "function" ? created.toObject() : created;
 }
 
 async function unassignAbstract(abstractId) {
@@ -520,6 +573,7 @@ module.exports = {
   getAbstractById,
   getSubmittedAbstracts,
   getAllAbstracts,
+  getAssignedAbstractsByReviewerId,
   getAssignedAbstractByReviewerId,
   getApprovedGalleryAbstracts,
   getPreviousWinners,
@@ -531,6 +585,7 @@ module.exports = {
   addComment,
   updateAbstractById,
   deleteAbstractById,
+  createHistoricWinner,
   unassignAbstract,
   setFinalApproval
 };
