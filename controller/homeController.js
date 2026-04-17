@@ -1919,7 +1919,8 @@ async function getCommitteeMembersPage(req, res) {
 async function getAbstractGalleryPage(req, res) {
   try {
     const titleQuery = String(req.query?.q || "").trim();
-    const abstracts = abstractDao.getApprovedGalleryAbstracts ? await abstractDao.getApprovedGalleryAbstracts(titleQuery) : [];
+    const typeQuery = String(req.query?.f || "").trim();
+    const abstracts = abstractDao.getApprovedGalleryAbstracts ? await abstractDao.getApprovedGalleryAbstracts(titleQuery, typeQuery) : [];
     const rows = abstracts
       .map((abs) => `
         <tr>
@@ -1927,6 +1928,11 @@ async function getAbstractGalleryPage(req, res) {
           <td>${escapeHtml(abs.studentName || "Unknown Author")}</td>
           <td>${escapeHtml(abs.presentationType || "")}</td>
         </tr>
+      `)
+      .join("");
+    const types = abstracts
+      .map((abs) => `
+        <option value="${escapeHtml(abs.presentationType)}">${escapeHtml(abs.presentationType)}</option>
       `)
       .join("");
     const previousWinners = abstractDao.getPreviousWinners ? await abstractDao.getPreviousWinners(titleQuery) : [];
@@ -1975,6 +1981,13 @@ async function getAbstractGalleryPage(req, res) {
           </div>
           <button class="btn btn-primary" type="submit">Search</button>
           <a class="btn btn-secondary" href="/gallery">Clear</a>
+          <div>
+            <label for="gallery-search">Filter by Type</label>
+            <select name="f" id="cars">
+              <option value="${escapeHtml(typeQuery)}">${escapeHtml(typeQuery)}</option>
+              ${types}
+            </select>
+          </div>
         </form>
         ${searchSummary}
 

@@ -141,13 +141,21 @@ async function getAllAbstracts() {
 }
 
 
-async function getApprovedGalleryAbstracts(titleQuery = "") {
+async function getApprovedGalleryAbstracts(titleQuery = "", typeQuery = "") {
   const normalizedQuery = String(titleQuery || "").trim();
+  const normalizedFilter = String(typeQuery || "").trim();
   const filter = { submissionState: "Submitted", finalStatus: "Approved", isComplete: true };
 
   if (normalizedQuery) {
     filter.title = {
       $regex: normalizedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      $options: "i"
+    };
+  }
+
+  if (normalizedFilter) {
+    filter.presentationType = {
+      $regex: normalizedFilter.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
       $options: "i"
     };
   }
